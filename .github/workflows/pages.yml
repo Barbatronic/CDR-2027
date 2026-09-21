@@ -38,7 +38,8 @@ jobs:
       - name: Construction du site avec Jekyll
         working-directory: DOCS
         run: |
-          printf 'url: "%s"\nbaseurl: "%s"\n' "${{ steps.pages.outputs.origin }}" "${{ steps.pages.outputs.base_path }}" > _config_pages.yml
+          ORIGIN="${{ steps.pages.outputs.origin }}"
+          printf 'url: "%s"\nbaseurl: "%s"\n' "${ORIGIN/http:/https:}" "${{ steps.pages.outputs.base_path }}" > _config_pages.yml
           bundle exec jekyll build --config _config.yml,_config_pages.yml
         env:
           JEKYLL_ENV: production
