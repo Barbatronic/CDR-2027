@@ -1,0 +1,60 @@
+name: Publication du site (GitHub Pages)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "DOCS/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupération du dépôt
+        uses: actions/checkout@v4
+
+      - name: Installation de Ruby et des gems
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.2"
+          bundler-cache: true
+          working-directory: DOCS
+
+      - name: Configuration de Pages
+        id: pages
+        uses: actions/configure-pages@v5
+
+      - name: Construction du site avec Jekyll
+        working-directory: DOCS
+        run: |
+          printf 'url: "%s"\nbaseurl: "%s"\n' "${{ steps.pages.outputs.origin }}" "${{ steps.pages.outputs.base_path }}" > _config_pages.yml
+          bundle exec jekyll build --config _config.yml,_config_pages.yml
+        env:
+          JEKYLL_ENV: production
+
+      - name: Envoi de l'artefact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: DOCS/_site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Déploiement sur GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
