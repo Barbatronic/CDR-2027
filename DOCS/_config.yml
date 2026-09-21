@@ -1,0 +1,36 @@
+title: CDR 2027
+description: Documentation du robot différentiel Karibous - Coupe de France de Robotique 2027
+theme: just-the-docs
+color_scheme: dark
+lang: fr
+timezone: Europe/Paris
+
+# Journal : articles dans _posts/, servis sous /journal/AAAA-MM-JJ-titre/
+permalink: /journal/:year-:month-:day-:title/
+plugins:
+  - jekyll-feed
+
+# Layout appliqué par défaut : pages -> thème, articles -> _layouts/post.html
+defaults:
+  - scope: { path: "", type: pages }
+    values: { layout: default }
+  - scope: { path: "", type: posts }
+    values: { layout: post }
+
+# Recherche intégrée
+search_enabled: true
+
+# Lien "Modifier cette page" en bas de chaque page
+gh_edit_link: true
+gh_edit_link_text: "Modifier cette page sur GitHub"
+gh_edit_repository: "https://github.com/Barbatronic/CDR-2027"
+gh_edit_branch: "main"
+gh_edit_source: DOCS
+gh_edit_view_mode: "tree"
+
+# Exclus du build Jekyll
+exclude:
+  - Gemfile
+  - Gemfile.lock
+  - README.md
+  - vendor/

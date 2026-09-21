@@ -1,0 +1,13 @@
+---
+layout: default
+---
+<h1>{{ page.title }}</h1>
+<p class="fs-2 text-grey-dk-000">
+  {{ page.date | date: "%d/%m/%Y" }}
+  {% for tag in page.tags %}<a class="label" href="{{ '/journal/tags/' | relative_url }}#{{ tag | slugify }}">{{ tag }}</a> {% endfor %}
+</p>
+
+{{ content }}
+
+<hr>
+<p><a href="{{ '/journal/' | relative_url }}">← Retour au journal</a></p>

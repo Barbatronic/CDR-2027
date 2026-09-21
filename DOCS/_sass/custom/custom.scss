@@ -1,0 +1,17 @@
+// Images et vidéos des articles : coins légèrement arrondis
+.main-content img,
+.main-content video {
+  border-radius: 6px;
+}
+
+.main-content video {
+  margin: 0.5rem 0;
+}
+
+// Légende : la ligne en italique juste sous une image
+.main-content img + em {
+  display: block;
+  margin: 0.4rem 0 1.5rem;
+  font-size: 0.8rem;
+  color: $grey-lt-000;
+}
