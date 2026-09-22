@@ -15,3 +15,13 @@
   font-size: 0.8rem;
   color: $grey-lt-000;
 }
+
+// Model Viewer : modèles 3D (glTF/GLB) intégrés dans les articles
+model-viewer {
+  width: 100%;
+  height: 420px;
+  margin: 0.5rem 0;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background-color: rgba(255, 255, 255, 0.03);
+}
