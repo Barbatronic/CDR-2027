@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   height="210mm"
+   version="1.2"
+   viewBox="0 0 2970 2100"
+   width="297mm"
+   id="svg42"
+   sodipodi:docname="ball-launcher-test_side.svg"
+   inkscape:version="1.4.2 (ebf0e94, 2025-05-08)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <sodipodi:namedview
+     id="namedview42"
+     pagecolor="#505050"
+     bordercolor="#eeeeee"
+     borderopacity="1"
+     inkscape:showpageshadow="0"
+     inkscape:pageopacity="0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#505050"
+     inkscape:document-units="mm"
+     inkscape:zoom="0.79464085"
+     inkscape:cx="140.94418"
+     inkscape:cy="229.6635"
+     inkscape:window-width="1920"
+     inkscape:window-height="989"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="Page" />
+  <title
+     id="title1">FreeCAD SVG Export</title>
+  <desc
+     id="desc1">Drawing page: Page exported from FreeCAD document: Unnamed</desc>
+  <defs
+     id="defs1" />
+  <g
+     id="Page"
+     inkscape:groupmode="layer"
+     inkscape:label="TechDraw">
+    <g
+       id="Default_Template_A4_Landscape.svg"
+       style="stroke: none;"
+       transform="scale(10.000000, 10.000000)">
+      <metadata
+         id="metadata8">
+        <rdf:RDF>
+          <cc:Work
+             rdf:about="">
+            <dc:format>image/svg+xml</dc:format>
+            <dc:type
+               rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+          </cc:Work>
+        </rdf:RDF>
+      </metadata>
+    </g>
+    <path
+       d="M 31.557476,1015.7604 H 150.76272 c 54.86225,0 99.33775,-44.59362 99.33775,-99.60159 v -398.4064 h 119.2052 v 398.4064 c 0,55.00797 44.475,99.60159 99.3377,99.60159 h 139.0728 l 9.9337,-9.9602 V 29.704563 l -9.9337,-9.96016 H 31.557476 l -9.93377,9.96016 V 1005.8002 l 9.93377,9.9602 m 29.80131,-74.70119 c -8.22913,0 -14.90065,6.68924 -14.90065,14.94024 0,8.251 6.67152,14.94024 14.90065,14.94024 8.22914,0 14.90066,-6.68924 14.90066,-14.94024 0,-8.251 -6.67152,-14.94024 -14.90066,-14.94024 M 399.10697,888.76837 c 8.2294,0 14.9007,-6.68924 14.9007,-14.94024 0,-8.251 -6.6713,-14.94024 -14.9007,-14.94024 -8.2294,0 -14.9007,6.68924 -14.9007,14.94024 0,8.251 6.6713,14.94024 14.9007,14.94024 m 178.8079,52.29084 c 8.2291,0 14.9006,6.68924 14.9006,14.94024 0,8.251 -6.6715,14.94024 -14.9006,14.94024 -8.2292,0 -14.9007,-6.68924 -14.9007,-14.94024 0,-8.251 6.6715,-14.94024 14.9007,-14.94024 M 399.10697,674.62493 c 8.2294,0 14.9007,-6.68924 14.9007,-14.94024 0,-8.251 -6.6713,-14.94024 -14.9007,-14.94024 -8.2294,0 -14.9007,6.68924 -14.9007,14.94024 0,8.251 6.6713,14.94024 14.9007,14.94024 M 61.358786,64.565123 c -8.22913,0 -14.90065,6.689243 -14.90065,14.94024 0,8.250997 6.67152,14.940244 14.90065,14.940244 8.22914,0 14.90066,-6.689247 14.90066,-14.940244 0,-8.250997 -6.67152,-14.94024 -14.90066,-14.94024 m 516.556084,0 c 8.2291,0 14.9006,6.689243 14.9006,14.94024 0,8.250997 -6.6715,14.940244 -14.9006,14.940244 -8.2292,0 -14.9007,-6.689247 -14.9007,-14.940244 0,-8.250997 6.6715,-14.94024 14.9007,-14.94024"
+       fill-rule="evenodd"
+       vector-effect="none"
+       id="path1"
+       style="font-style:normal;font-weight:400;font-size:31.75px;font-family:'Sans Serif';fill:none;fill-opacity:1;stroke:#ff0000;stroke-width:2.95;stroke-linecap:square;stroke-linejoin:bevel;stroke-dasharray:none;stroke-opacity:1" />
+  </g>
+</svg>
