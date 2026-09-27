@@ -42,6 +42,8 @@ L'impression devait durer environ 3 heures, et j'ai dû séparer la pièce en de
 
 Pendant que le canal s'imprimait, j'ai continué la modélisation : d'abord le support des deux rouleaux, puis le support du ventilateur. Pour ce système complet, je n'ai imprimé que la partie de tir.
 
+Le modèle FreeCAD est dans le dépôt du projet : [ball-launcher.FCStd](https://github.com/Barbatronic/CDR-2027/blob/main/MCAD/actuator-parts/ball-launcher.FCStd).
+
 ![Modèle 3D du système complet sous FreeCAD : canal coudé, support du ventilateur et support des rouleaux]({{ '/assets/img/2026-09-27-systeme-tir-integre/sti-systeme-modele-3d.png' | relative_url }})
 *Le système complet modélisé sous FreeCAD : le canal coudé, le support du ventilateur en haut et le support des rouleaux.*
 
