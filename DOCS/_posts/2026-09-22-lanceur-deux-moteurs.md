@@ -11,7 +11,7 @@ Ce soir, je teste un premier lanceur de boulets à deux moteurs, pour voir si ce
 
 ## La maquette
 
-J'ai fait une maquette rapide ce soir, en impression 3D et découpe laser. Le modèle est dans le dépôt du projet : [ball-launcher-test.FCStd](https://github.com/Barbatronic/CDR-2027/blob/main/MCAD/actuator-parts/ball-launcher-test.FCStd) pour le fichier FreeCAD, et [ball-launcher-test_side.svg](https://github.com/Barbatronic/CDR-2027/blob/main/MCAD/laser/ball-launcher-test_side.svg) pour le plan de découpe laser.
+J'ai fait une maquette rapide ce soir, en impression 3D et découpe laser. Le modèle est dans le dépôt du projet : [ball-launcher-test.FCStd](https://github.com/Barbatronic/CDR-2027/blob/main/MCAD/actuator-parts/ball-launcher-test.FCStd) pour le fichier FreeCAD, et [ball-launcher-test_side.svg](https://github.com/Barbatronic/CDR-2027/blob/main/MCAD/laser-cutting/ball-launcher-test_side.svg) pour le plan de découpe laser.
 
 ### Modèle 3D
 
