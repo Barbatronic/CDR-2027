@@ -45,7 +45,7 @@ extern PCF8574 pcf;
 
 // ─── Init / Shutdown ─────────────────────────────────────────────────────────
 bool actuatorsInit();
-void actuatorsDisable();   // lanceur + ventilateur à l'arrêt, PCF au repos
+void actuatorsDisable();   // lanceur + ventilateur à l'arrêt, servos relâchés, PCF au repos
 
 // ─── Lanceur : 2 roues à inertie (ESC) ───────────────────────────────────────
 extern Esc flywheelLeft;
@@ -53,6 +53,10 @@ extern Esc flywheelRight;
 
 // ─── Ventilateur d'alimentation des balles ──────────────────────────────────
 extern PwmFan feeder;
+
+// ─── Servomoteurs ─────────────────────────────────────────────────────────────
+extern Servo servoBasGauche;   // canal 2
+extern Servo servoBasDroit;    // canal 3
 
 // ─── Séquences d'actionneurs ──────────────────────────────────────────────────
 void initActuators();                               // position de repos

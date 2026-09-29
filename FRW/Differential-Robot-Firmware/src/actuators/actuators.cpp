@@ -18,6 +18,12 @@ Esc flywheelRight(pca, {FLYWHEEL_R_CHANNEL, ESC_MIN_US, ESC_MAX_US});
 // ─── Ventilateur d'alimentation ──────────────────────────────────────────────
 PwmFan feeder(FEEDER_PWM_PIN, FEEDER_LEDC_CHANNEL, FEEDER_PWM_FREQ_HZ);
 
+// ─── Servomoteurs ─────────────────────────────────────────────────────────────
+// {canal, minUs, maxUs, minDeg, maxDeg} — inverser minUs/maxUs pour un servo monté en miroir
+// Aucun signal au boot : le servo ne bouge qu'à la première commande.
+Servo servoBasGauche(pca, {2, 500, 2500, 0, 180});   // bas gauche
+Servo servoBasDroit (pca, {3, 500, 2500, 0, 180});   // bas droit
+
 // ─── Init ────────────────────────────────────────────────────────────────────
 
 bool actuatorsInit() {
@@ -31,6 +37,8 @@ bool actuatorsInit() {
 void actuatorsDisable() {
     feeder.stop();
     stopFlywheels();          // gaz mini plutôt que coupure : arrêt franc des ESC
+    servoBasGauche.detach();
+    servoBasDroit.detach();
     pcf.writeByte(0xFF);      // toutes sorties PCF8574 au repos (HIGH)
 }
 

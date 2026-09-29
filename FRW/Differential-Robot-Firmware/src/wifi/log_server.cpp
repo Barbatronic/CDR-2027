@@ -34,8 +34,8 @@ void wifiLogLidarAbs(const LidarPoint* buf, uint16_t n,
     logServer.updateLidarAbs(buf, n, robot_x, robot_y, robot_theta_rad);
 }
 
-void wifiLogUpdateActuators(float fwL, float fwR, float fd) {
-    logServer.updateActuators(fwL, fwR, fd);
+void wifiLogUpdateActuators(float fwL, float fwR, float fd, float sbg, float sbd) {
+    logServer.updateActuators(fwL, fwR, fd, sbg, sbd);
 }
 
 void wifiLogUpdateMotion(uint8_t state, uint8_t phase,
@@ -289,8 +289,11 @@ void LogServer::updateLidarAbs(const LidarPoint* buf, uint16_t n,
 
 // ─── updateActuators ──────────────────────────────────────────────────────────
 
-void LogServer::updateActuators(float fwL, float fwR, float fd) {
+void LogServer::updateActuators(float fwL, float fwR, float fd, float sbg, float sbd) {
+    // Servo jamais commandé → NAN : envoyé comme -1 (NAN rendrait le JSON invalide)
     _actFwL = fwL; _actFwR = fwR; _actFd = fd;
+    _actSbg = isnan(sbg) ? -1.0f : sbg;
+    _actSbd = isnan(sbd) ? -1.0f : sbd;
     _actNew = true;
 }
 
@@ -358,10 +361,11 @@ void LogServer::_loop() {
         // Actionneurs
         if (_actNew) {
             _actNew = false;
-            char buf[96];
+            char buf[128];
             snprintf(buf, sizeof(buf),
-                     "{\"type\":\"act\",\"fwL\":%.1f,\"fwR\":%.1f,\"fd\":%.1f}",
-                     (double)_actFwL, (double)_actFwR, (double)_actFd);
+                     "{\"type\":\"act\",\"fwL\":%.1f,\"fwR\":%.1f,\"fd\":%.1f,\"sbg\":%.1f,\"sbd\":%.1f}",
+                     (double)_actFwL, (double)_actFwR, (double)_actFd,
+                     (double)_actSbg, (double)_actSbd);
             _ws.broadcastTXT(buf);
         }
 

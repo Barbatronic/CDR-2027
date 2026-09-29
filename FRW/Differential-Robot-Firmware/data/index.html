@@ -388,6 +388,18 @@ body {
                      oninput="sendServo('feeder', this.value)">
               <span class="servo-val" id="sv-feeder">0%</span>
             </div>
+            <div class="servo-row">
+              <span class="servo-label">Bas G (2)</span>
+              <input type="range" id="sl-servoBasG" min="0" max="100" value="50" disabled
+                     oninput="sendServo('servoBasG', this.value)">
+              <span class="servo-val" id="sv-servoBasG">--</span>
+            </div>
+            <div class="servo-row">
+              <span class="servo-label">Bas D (3)</span>
+              <input type="range" id="sl-servoBasD" min="0" max="100" value="50" disabled
+                     oninput="sendServo('servoBasD', this.value)">
+              <span class="servo-val" id="sv-servoBasD">--</span>
+            </div>
           </div>
           <div id="act-btns">
             <button class="act-btn seq" id="btn-seq-stop" onclick="sendSeq('stop')" disabled>&#x25A0; Stop tout</button>
@@ -1055,6 +1067,8 @@ function connect() {
       updateSlider('flywheelLeft',  d.fwL);
       updateSlider('flywheelRight', d.fwR);
       updateSlider('feeder',        d.fd);
+      updateSlider('servoBasG',     d.sbg);
+      updateSlider('servoBasD',     d.sbd);
 
     } else if (d.type === 'calib_state') {
       updateCalibUI(d);
@@ -1104,7 +1118,7 @@ setInterval(() => {
 }, 1000);
 
 // ── Actionneurs ────────────────────────────────────────────────────────────
-const ACT_IDS = ['flywheels','flywheelLeft','flywheelRight','feeder'];
+const ACT_IDS = ['flywheels','flywheelLeft','flywheelRight','feeder','servoBasG','servoBasD'];
 const ACT_CTRL_BTNS = ['btn-seq-stop','btn-run-test'];
 
 function canControl() {
@@ -1145,6 +1159,10 @@ function confirmAndSend(action, msg) {
 
 function updateSlider(id, val) {
   if (typeof val !== 'number' || isNaN(val)) return;
+  if (val < 0) {   // servo jamais commandé (pas de signal)
+    document.getElementById('sv-' + id).textContent = '--';
+    return;
+  }
   document.getElementById('sl-' + id).value = val;
   document.getElementById('sv-' + id).textContent = Math.round(val) + '%';
 }

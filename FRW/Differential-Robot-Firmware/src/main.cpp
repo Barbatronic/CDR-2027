@@ -326,7 +326,8 @@ void loop() {
         wifiLogUpdatePose(gDisplay.enc_pose_x_mm, gDisplay.enc_pose_y_mm, gDisplay.enc_pose_theta_deg,
                           robotStateStr(gDisplay.robot_state),
                           gDisplay.nav_dist_mm, gDisplay.nav_delta_deg, team, canClick);
-        wifiLogUpdateActuators(flywheelLeft.getSpeed(), flywheelRight.getSpeed(), feeder.getSpeed());
+        wifiLogUpdateActuators(flywheelLeft.getSpeed(), flywheelRight.getSpeed(), feeder.getSpeed(),
+                               servoBasGauche.getPercent(), servoBasDroit.getPercent());
         wifiLogUpdateMotion((uint8_t)gMotionCtrl.getState(),
                             (uint8_t)gMotionCtrl.getPhase(),
                             gMotionCtrl.getDistMm(),
@@ -367,6 +368,8 @@ void loop() {
         else if (strcmp(cmd.id, "flywheels")     == 0) setFlywheels(cmd.val);
         else if (strcmp(cmd.id, "flywheelLeft")  == 0) flywheelLeft.setSpeed(cmd.val);
         else if (strcmp(cmd.id, "flywheelRight") == 0) flywheelRight.setSpeed(cmd.val);
+        else if (strcmp(cmd.id, "servoBasG")     == 0) servoBasGauche.setPercent(cmd.val);
+        else if (strcmp(cmd.id, "servoBasD")     == 0) servoBasDroit.setPercent(cmd.val);
     }
 
     vTaskDelay(10);

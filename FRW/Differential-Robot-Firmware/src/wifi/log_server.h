@@ -20,7 +20,7 @@ struct LogEntry {
 };
 
 struct ServoCmd {
-    char  id[24];   // "flywheels" | "flywheelLeft" | "flywheelRight" | "feeder" | "seq_*"
+    char  id[24];   // "flywheels" | "flywheelLeft" | "flywheelRight" | "feeder" | "servoBasG" | "servoBasD" | "seq_*"
     float val;      // 0-100 (%)
 };
 
@@ -35,7 +35,7 @@ public:
     void updateLidar(const LidarPoint* buf, uint16_t n);
     void updateLidarAbs(const LidarPoint* buf, uint16_t n,
                         float robot_x, float robot_y, float robot_theta_rad);
-    void updateActuators(float fwL, float fwR, float fd);
+    void updateActuators(float fwL, float fwR, float fd, float sbg, float sbd);
     // Motion debug : état/phase + cible courante + vitesses commandées.
     // state/phase codés en uint8_t (cf. MotionController::State/Phase).
     void updateMotion(uint8_t state, uint8_t phase,
@@ -74,7 +74,7 @@ private:
     volatile bool _lidarAbsNew{false};
 
     // Actionneurs
-    volatile float _actFwL{0}, _actFwR{0}, _actFd{0};
+    volatile float _actFwL{0}, _actFwR{0}, _actFd{0}, _actSbg{-1}, _actSbd{-1};
     volatile bool  _actNew{false};
 
     // Motion debug
@@ -104,7 +104,7 @@ void wifiLogUpdatePose(float x, float y, float theta_deg, const char* state,
 void wifiLogLidar(const LidarPoint* buf, uint16_t n);
 void wifiLogLidarAbs(const LidarPoint* buf, uint16_t n,
                      float robot_x, float robot_y, float robot_theta_rad);
-void wifiLogUpdateActuators(float fwL, float fwR, float fd);
+void wifiLogUpdateActuators(float fwL, float fwR, float fd, float sbg, float sbd);
 void wifiLogUpdateMotion(uint8_t state, uint8_t phase,
                          float distMm, float speedCap,
                          float vL, float vR,
@@ -121,7 +121,7 @@ bool wifiPollFieldClick(float& x_mm, float& y_mm, float& theta_deg);
 inline void wifiLogBegin() {}
 inline void wifiLogUpdatePose(float, float, float, const char*, float, float, char, bool) {}
 inline void wifiLogLidar(const void*, uint16_t) {}
-inline void wifiLogUpdateActuators(float, float, float) {}
+inline void wifiLogUpdateActuators(float, float, float, float, float) {}
 inline void wifiLogUpdateMotion(uint8_t, uint8_t, float, float, float, float, float, float, float) {}
 struct ServoCmd { char id[24]; float val; };
 inline bool wifiPollCmd(ServoCmd&) { return false; }
