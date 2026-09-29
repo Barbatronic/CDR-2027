@@ -4,6 +4,7 @@
 
 #include "actuators.h"
 #include <Arduino.h>
+#include <math.h>
 
 // ─── Instances matériel ──────────────────────────────────────────────────────
 
@@ -47,6 +48,7 @@ void actuatorsDisable() {
 void initActuators() {
     feeder.stop();
     stopFlywheels();
+    ouvrirBras();             // bras ouverts : sinon ils butent contre les bordures
 }
 
 void armFlywheels() {
@@ -83,3 +85,46 @@ void rampFlywheels(float pctL, float pctR, uint32_t durationMs) {
 void stopFlywheels() {
     setFlywheels(0.0f);
 }
+
+// ─── Bras bas ────────────────────────────────────────────────────────────────
+
+// Déplacement simultané interpolé des deux bras.
+static void rampBras(float pctG, float pctD, float pctPerSec) {
+    constexpr uint32_t STEP_MS = 20;
+    float startG = servoBasGauche.getPercent();
+    float startD = servoBasDroit.getPercent();
+    float dist   = fmaxf(fabsf(pctG - startG), fabsf(pctD - startD));
+    uint32_t steps = (uint32_t)(dist / pctPerSec * 1000.0f / STEP_MS);
+    for (uint32_t i = 1; i <= steps; i++) {
+        float k = (float)i / (float)steps;
+        servoBasGauche.setPercent(startG + (pctG - startG) * k);
+        servoBasDroit.setPercent(startD + (pctD - startD) * k);
+        wait(STEP_MS);
+    }
+    servoBasGauche.setPercent(pctG);
+    servoBasDroit.setPercent(pctD);
+}
+
+void moveBras(float pctG, float pctD, float pctPerSec) {
+    float curG  = servoBasGauche.getPercent();
+    float curD  = servoBasDroit.getPercent();
+    bool  known = !isnanf(curG) && !isnanf(curD);   // NAN = jamais commandé
+
+    if (known) {                             // cas normal : les deux ensemble
+        rampBras(pctG, pctD, pctPerSec);
+        return;
+    }
+
+    // Position inconnue : le servo saute à la cible → l'un après l'autre
+    bool gFirst = BRAS_INIT_G_EN_PREMIER;
+    Servo &first  = gFirst ? servoBasGauche : servoBasDroit;
+    Servo &second = gFirst ? servoBasDroit  : servoBasGauche;
+    first.moveToPercent(gFirst ? pctG : pctD, pctPerSec);
+    wait(BRAS_SEQ_DELAY_MS);
+    second.moveToPercent(gFirst ? pctD : pctG, pctPerSec);
+    wait(BRAS_SEQ_DELAY_MS);
+}
+
+void ouvrirBras()  { moveBras(BRAS_G_OUVERT, BRAS_D_OUVERT); }
+void prendreBloc() { moveBras(BRAS_G_PRISE,  BRAS_D_PRISE);  }
+void reposBras()   { moveBras(BRAS_G_REPOS,  BRAS_D_REPOS);  }

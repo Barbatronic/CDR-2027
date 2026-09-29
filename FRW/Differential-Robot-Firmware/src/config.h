@@ -167,6 +167,22 @@
 #define FEEDER_LEDC_CHANNEL     2      // canal 0 = LIDAR (timer 0) → canal 2 (timer 1)
 #define FEEDER_PWM_FREQ_HZ      25000
 
+// ─── BRAS BAS (servos PCA canaux 2 = gauche, 3 = droit) ──────────────────────
+// Positions en % de course. Les deux servos sont montés en miroir.
+#define BRAS_G_OUVERT       75.0f
+#define BRAS_D_OUVERT       25.0f
+#define BRAS_G_PRISE        66.0f
+#define BRAS_D_PRISE        33.0f
+#define BRAS_G_REPOS        50.0f
+#define BRAS_D_REPOS        50.0f
+
+// Déplacements simultanés et interpolés entre positions connues.
+// Position inconnue (1er mouvement après le boot : le servo saute directement
+// à la cible) → un bras après l'autre, par précaution.
+#define BRAS_INIT_G_EN_PREMIER   1      // position inconnue : 1 = G puis D, 0 = D puis G
+#define BRAS_VITESSE_PCT_S  100.0f      // vitesse de déplacement (% de course / s)
+#define BRAS_SEQ_DELAY_MS   300         // attente entre les deux bras (fin de course physique)
+
 // ─── TEST AU DÉMARRAGE ───────────────────────────────────────────────────────
 // Self-test matériel (I2C, LIDAR, encodeurs, IO) au boot — ne fait rien tourner
 #define BOOT_SELFTEST_ENABLED       1

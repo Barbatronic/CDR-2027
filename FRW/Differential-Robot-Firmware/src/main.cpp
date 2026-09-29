@@ -364,6 +364,9 @@ void loop() {
         if (gDisplay.robot_state != RobotState::WAIT_INIT) continue;
 
         if      (strcmp(cmd.id, "seq_stop")      == 0) { feeder.stop(); stopFlywheels(); }
+        else if (strcmp(cmd.id, "seq_brasOuvert") == 0) ouvrirBras();
+        else if (strcmp(cmd.id, "seq_brasPrise")  == 0) prendreBloc();
+        else if (strcmp(cmd.id, "seq_brasRepos")  == 0) reposBras();
         else if (strcmp(cmd.id, "feeder")        == 0) feeder.setSpeed(cmd.val);
         else if (strcmp(cmd.id, "flywheels")     == 0) setFlywheels(cmd.val);
         else if (strcmp(cmd.id, "flywheelLeft")  == 0) flywheelLeft.setSpeed(cmd.val);

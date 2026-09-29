@@ -59,10 +59,16 @@ extern Servo servoBasGauche;   // canal 2
 extern Servo servoBasDroit;    // canal 3
 
 // ─── Séquences d'actionneurs ──────────────────────────────────────────────────
-void initActuators();                               // position de repos
+void initActuators();                               // lanceur arrêté, bras ouverts
 void armFlywheels();                                // gaz mini pendant ESC_ARM_MS (bloquant)
 void setFlywheels(float pct);                       // même consigne sur les deux roues
 void setFlywheels(float pctL, float pctR);          // consigne par roue (canal 0, canal 1)
 void rampFlywheels(float pct, uint32_t durationMs); // rampe synchronisée (bloquant)
 void rampFlywheels(float pctL, float pctR, uint32_t durationMs);
 void stopFlywheels();
+
+// Bras bas : déplacement simultané (séquencé si position inconnue)
+void moveBras(float pctG, float pctD, float pctPerSec = BRAS_VITESSE_PCT_S);
+void ouvrirBras();                                  // bras bas ouverts
+void prendreBloc();                                 // serrage du bloc
+void reposBras();                                   // position de repos

@@ -403,6 +403,9 @@ body {
           </div>
           <div id="act-btns">
             <button class="act-btn seq" id="btn-seq-stop" onclick="sendSeq('stop')" disabled>&#x25A0; Stop tout</button>
+            <button class="act-btn" id="btn-bras-ouvert" onclick="sendSeq('brasOuvert')" disabled>Bras ouverts</button>
+            <button class="act-btn" id="btn-bras-prise"  onclick="sendSeq('brasPrise')"  disabled>Prise bloc</button>
+            <button class="act-btn" id="btn-bras-repos"  onclick="sendSeq('brasRepos')"  disabled>Bras repos</button>
             <button class="act-btn seq" id="btn-run-test" onclick="sendStateCmd('run_test')" disabled>&#x25B6; Test lanceur</button>
           </div>
         </div>
@@ -1119,7 +1122,7 @@ setInterval(() => {
 
 // ── Actionneurs ────────────────────────────────────────────────────────────
 const ACT_IDS = ['flywheels','flywheelLeft','flywheelRight','feeder','servoBasG','servoBasD'];
-const ACT_CTRL_BTNS = ['btn-seq-stop','btn-run-test'];
+const ACT_CTRL_BTNS = ['btn-seq-stop','btn-run-test','btn-bras-ouvert','btn-bras-prise','btn-bras-repos'];
 
 function canControl() {
   return pose.state === 'APPUYER INIT';   // uniquement avant le bouton init
