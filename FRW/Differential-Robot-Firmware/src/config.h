@@ -1,0 +1,217 @@
+#pragma once
+#include <stdint.h>
+
+// ─── WIFI LOG ────────────────────────────────────────────────────────────────
+// 0 = désactivé (compétition — zéro overhead WiFi)
+// 1 = actif — interface web disponible
+#define WIFI_LOG_ENABLED    1
+
+// Mode de connexion WiFi :
+// 0 = AP (compétition) — crée le réseau "Karibous", IP fixe 192.168.4.1
+// 1 = STA (développement) — se connecte au réseau domestique, IP par DHCP
+//     → l'IP s'affiche au démarrage sur le moniteur série
+#define WIFI_USE_STA        1
+
+// ─── LOGS ────────────────────────────────────────────────────────────────────
+// Les macros LOG_E/W/I/D sont définies dans log.h et wrappent Serial.printf.
+// Les blocs inactifs sont éliminés à la compilation (condition constante).
+//
+//   0  →  aucun log — zéro CPU, zéro UART (compétition)
+//   1  →  [E] erreurs critiques seulement
+//   2  →  [E][W] + obstacles, timeouts
+//   3  →  [E][W][I] + positions, état match  ← défaut debug
+//   4  →  [E][W][I][D] + chaque startGo(), détail PID
+//
+// Usage :  LOG_I("TAG", "x=%.0f y=%.0f", x, y);
+#define LOG_LEVEL  3
+
+// ─── LIDAR LD06 ───────────────────────────────────────────────────────────────
+#define LIDAR_RX_PIN        9
+#define LIDAR_BAUD          230400
+#define LIDAR_PWM_PIN       8
+#define LIDAR_PWM_FREQ_HZ   10000
+#define LIDAR_PWM_DUTY      192       // 75% sur 8 bits → ~3600 RPM
+#define LIDAR_OFFSET_DEG    0.0f      // décalage fin (à calibrer) — la correction CW + 90° est dans le code
+
+// ─── ENCODEURS AMT102V (quadrature x4, roues codeuses ∅50 mm) ────────────────
+#define ENC_LEFT_A_PIN      6
+#define ENC_LEFT_B_PIN      7
+#define ENC_RIGHT_A_PIN     1
+#define ENC_RIGHT_B_PIN     2
+
+#define ENC_PPR             2048
+#define ENC_COUNTS_PER_REV  (ENC_PPR * 4)
+#define ENC_WHEEL_DIAM_MM   50.58f
+#define ENC_WHEELBASE_MM    189.0f  // distance entre les deux roues codeuses
+#define MM_PER_COUNT        (3.14159265f * ENC_WHEEL_DIAM_MM / ENC_COUNTS_PER_REV)
+#define ENC_LEFT_INVERT     false   // inverser sens encodeur gauche
+#define ENC_RIGHT_INVERT    true    // inverser sens encodeur droit
+
+// ─── MOTEURS PAS À PAS (roues de traction ∅60 mm) ────────────────────────────
+#define STEPPER_R_STEP_PIN  12
+#define STEPPER_R_DIR_PIN   13
+#define STEPPER_L_STEP_PIN  11
+#define STEPPER_L_DIR_PIN   10
+#define STEPPER_EN_PIN      21          // LOW = activé (commun aux deux)
+#define STEPPER_L_INVERT    false        // inverser sens logique moteur gauche
+#define STEPPER_R_INVERT    true       // inverser sens logique moteur droit
+
+#define STEPPER_STEPS_REV   1600      // 200 pas × 8 micropas
+#define DRIVE_WHEEL_DIAM_MM 57.53f
+#define STEPS_PER_MM        ((float)STEPPER_STEPS_REV / (3.14159265f * DRIVE_WHEEL_DIAM_MM))
+
+// ─── GÉOMÉTRIE ROBOT ─────────────────────────────────────────────────────────
+#define WHEELBASE_MM            145.60f  // distance entre roues motrices (à mesurer)
+
+// ─── DIMENSIONS ROBOT ────────────────────────────────────────────────────────
+#define ROBOT_BACK_TO_CENTER_MM  80.9f  // arrière du robot → axe des roues
+
+// ─── CINÉMATIQUE ─────────────────────────────────────────────────────────────
+#define DEFAULT_SPEED_MMS   2000.0f    // mm/s
+#define DEFAULT_ACCEL_MMS2  1500.0f   // mm/s²  — freinage en 320 mm depuis 800 mm/s
+#define TURN_SPEED_MMS      2000.0f
+#define TURN_ACCEL_MMS2     3000.0f
+
+// ─── TABLE DE JEU ────────────────────────────────────────────────────────────
+#define TABLE_WIDTH_MM      3000.0f   // axe X (horizontal)
+#define TABLE_HEIGHT_MM     2000.0f   // axe Y (vertical, vers le bas)
+#define TABLE_MARGIN_MM     100.0f    // épaisseur marge bord (filtre points LIDAR = murs)
+
+// ─── ORIENTATIONS CARDINALES (repère table : 0°=Est, 90°=Nord, sens positif=CCW)
+#define ANGLE_NORTH         90.0f
+#define ANGLE_EAST           0.0f
+#define ANGLE_SOUTH        270.0f
+#define ANGLE_WEST         180.0f
+
+// ─── DÉTECTION OBSTACLE ──────────────────────────────────────────────────────
+#define LIDAR_BODY_DIST_MM  80.0f     // ignore points < 80 mm (intérieur du robot)
+
+// ─── ZONES AVEUGLES LIDAR (poteaux structurels) ───────────────────────────────
+// Angles en repère robot : 0°=avant, 90°=gauche, 180°=arrière, 270°=droite
+// Calibrer en observant les angles des poteaux sur Teleplot (pid_dL/dR ou lidar)
+#define LIDAR_BLIND_L_START  75.0f    // début zone aveugle poteau gauche (°)
+#define LIDAR_BLIND_L_END   105.0f    // fin   zone aveugle poteau gauche (°)
+#define LIDAR_BLIND_R_START 255.0f    // début zone aveugle poteau droite (°)
+#define LIDAR_BLIND_R_END   285.0f    // fin   zone aveugle poteau droite (°)
+
+#define OBS_DETECT_DIST_MM  500.0f    // distance de détection devant/derrière
+#define OBS_WIDTH_MM        200.0f    // largeur zone de détection (≥ largeur robot)
+#define OBS_MIN_DIST_MM     60.0f     // distance projetée min dans la zone obstacle
+#define OBS_CONFIDENCE_MIN  100       // seuil confiance point LIDAR
+#define OBS_WAIT_MS          3000     // timeout attente dégagement adversaire (ms)
+#define OBS_POLL_MS            20     // période vérification obstacle pendant go()
+#define OBS_BACKUP_MM       100.0f    // recul après détection avant attente
+#define OBS_STOP_ACCEL_MMS2 4000.0f   // décélération d'urgence (freinage agressif)
+#define LIDAR_LED_DIST_MM   OBS_DETECT_DIST_MM  // seuil LEDs = seuil détection robot
+
+// ─── ASSERVISSEMENT EN POSITION — double PID indépendant (roue D / roue G) ────
+//
+//  Chaque roue a son propre PID : consigne_position → erreur → PID → vitesse moteur.
+//  Les deux boucles sont indépendantes : elles se synchronisent naturellement
+//  (la roue en retard reçoit une consigne de vitesse plus élevée).
+//
+//  RÉGLAGE — procédure recommandée :
+//    1. KI=0, KD=0. Augmenter KP jusqu'à décelération nette sans dépassement.
+//       Valeur de départ : KP = savedAccel / savedSpeed (≈ 0.5 avec les défauts).
+//    2. Si le robot s'arrête systématiquement avant la cible (friction statique) :
+//       augmenter KI prudemment. Surveiller I_MAX.
+//    3. Si oscillations en fin de course : augmenter KD.
+//
+//  Symptômes → actions :
+//    Dépassement          → baisser KP
+//    Undershoot / calage  → augmenter KI ou MIN_SPD
+//    Oscillations finales → augmenter KD
+//
+#define ENC_P1_KP         1.8f    // proportionnel : mm/s par mm d'erreur position
+#define ENC_P1_KI         0.01f    // intégral      : mm/s par (mm · s) — anti-trainage
+#define ENC_P1_KD         0.2f   // dérivé        : amortissement en fin de course
+#define ENC_P1_I_MAX     100.0f    // anti-windup   : saturation intégrale (mm/s)
+#define ENC_P1_STOP_MM    5.0f    // seuil d'arrêt translation : erreur avg < valeur → stop (mm)
+#define ENC_P1_STOP_DEG   2.0f    // seuil d'arrêt rotation    : erreur avg < valeur → stop (°)
+#define ENC_P1_MIN_SPD    8.0f    // vitesse min   : en dessous → stopMove() (mm/s)
+
+// ─── DÉTECTION STALL ─────────────────────────────────────────────────────────
+// Durée minimale de non-mouvement encodeur pour valider un stall.
+// Trop court → faux positifs sur frottements. Trop long → réaction lente.
+#define STALL_CONFIRM_MS    150U    // ms consécutives sans avance pour confirmer le stall
+#define STALL_TIMEOUT_MS    2000U   // ms max pour atteindre la cible avant timeout (après dépassement)
+// Seuil de mouvement par poll (20ms) pour distinguer stall du jitter stepper en butée.
+// Trop bas → vibrations moteur réinitialisent stallSince (faux non-stall)
+// Trop haut → faux stall pendant un déplacement lent
+// À 10% speed = 200mm/s → 4mm/poll = ~206 counts → marge large même à 0.5mm
+#define STALL_THRESH_MM     0.5f    // mm/poll en dessous = considéré comme stall
+
+// ─── CHRONO DE MATCH ─────────────────────────────────────────────────────────
+#define MATCH_DURATION_MS  100000UL   // durée totale du match (100 s)
+#define MATCH_ENDGAME_MS    85000UL   // déclenchement repli fin de match (85 s)
+
+// ─── ACTIONNEURS I2C ─────────────────────────────────────────────────────────
+#define PCA9685_I2C_ADDR    0x40   // adresse PCA9685 (A0-A5 = GND)
+#define PCF8574_I2C_ADDR    0x20   // adresse PCF8574 (A0-A2 = GND) — optionnel, non monté
+
+// ─── LANCEUR — 2 roues à inertie sur ESC (sorties PCA9685) ───────────────────
+// ESC unidirectionnel (dual brushed 2/3S 6A×2) : un seul sens de rotation.
+// Le sens opposé des deux roues est obtenu physiquement (fils moteur croisés).
+#define FLYWHEEL_L_CHANNEL  0
+#define FLYWHEEL_R_CHANNEL  1
+
+#define ESC_MIN_US          1000   // impulsion arrêt (gaz mini)
+#define ESC_MAX_US          2000   // impulsion plein gaz
+#define ESC_ARM_MS          3000   // durée de gaz mini envoyée pour armer les ESC
+
+// ─── VENTILATEUR D'ALIMENTATION (pousse les balles vers les roues) ───────────
+// Ventilateur PC 4 fils, PWM direct depuis l'ESP32 (GPIO 19 = USB D-, libre car
+// le flash/log passe par l'UART). Sans MOSFET sur le 12 V : le ventilateur part
+// à fond tant que le firmware n'a pas démarré, et 0 % peut ne pas l'arrêter.
+#define FEEDER_PWM_PIN          19
+#define FEEDER_LEDC_CHANNEL     2      // canal 0 = LIDAR (timer 0) → canal 2 (timer 1)
+#define FEEDER_PWM_FREQ_HZ      25000
+
+// ─── TEST AU DÉMARRAGE ───────────────────────────────────────────────────────
+// Self-test matériel (I2C, LIDAR, encodeurs, IO) au boot — ne fait rien tourner
+#define BOOT_SELFTEST_ENABLED       1
+// Test lanceur au boot : 0 = désactivé (relançable via le bouton "Test lanceur" de l'UI)
+#define BOOT_FLYWHEEL_TEST_ENABLED  0
+#define FLYWHEEL_TEST_PCT       30.0f   // vitesse max atteinte par le test lanceur (%)
+
+// ─── LANCER DE BALLES ────────────────────────────────────────────────────────
+#define LAUNCH_SPINUP_MS        1000    // rampe de montée en vitesse des roues (ms)
+#define LAUNCH_SETTLE_MS         500    // stabilisation avant lancer (ms)
+#define LAUNCH_DURATION_MS      3000    // durée par défaut d'alimentation des balles (ms)
+#define LAUNCH_FEED_PCT        100.0f   // vitesse par défaut du ventilateur d'alimentation (%)
+#define LAUNCH_TAIL_MS           500    // roues maintenues après arrêt du ventilateur (ms)
+
+// ─── ÉCRAN SSD1306 I2C ───────────────────────────────────────────────────────
+#define DISPLAY_SCL_PIN     4
+#define DISPLAY_SDA_PIN     5
+#define OLED_I2C_ADDR       0x3C      // adresse 7 bits SSD1306 (self-test)
+#define DISPLAY_UPDATE_MS   500       // 2 Hz
+
+// ─── TÂCHES FREERTOS ─────────────────────────────────────────────────────────
+#define TASK_LIDAR_CORE     0
+#define TASK_LIDAR_PRIO     2
+#define TASK_LIDAR_STACK    4096
+
+#define TASK_STRATEGY_CORE  1
+#define TASK_STRATEGY_PRIO  2
+#define TASK_STRATEGY_STACK 4096
+
+#define TASK_DISPLAY_CORE   1
+#define TASK_DISPLAY_PRIO   1
+#define TASK_DISPLAY_STACK  3072
+
+#define TASK_WIFI_CORE      0         // Core 0 — priorité basse, ne bloque pas la stratégie
+#define TASK_WIFI_PRIO      1
+#define TASK_WIFI_STACK     8192
+
+// ─── BOUTONS ─────────────────────────────────────────────────────────────────
+#define BTN_TIRETTE_PIN     14    // pull-up externe — LOW = tirette en place
+#define BTN_TEAM_PIN        17    // pull-up interne — LOW = pressé
+#define BTN_INIT_PIN         3    // pull-up interne — LOW = pressé
+
+// ─── NEOPIXEL ────────────────────────────────────────────────────────────────
+#define NEO_PIN             46
+#define NEO_COUNT            7
+
+// ─── ÉQUIPE ──────────────────────────────────────────────────────────────────
+enum class Team : uint8_t { YELLOW, BLUE };
