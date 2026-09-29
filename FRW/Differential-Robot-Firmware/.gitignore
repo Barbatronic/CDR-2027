@@ -5,3 +5,5 @@ src/credentials.h
 .vscode/launch.json
 .vscode/ipch
 .claude/settings.local.json
+# Règlements (PDF volumineux, lien dans le README)
+doc/Eurobot*_Rules*.pdf

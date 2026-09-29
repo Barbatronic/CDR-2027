@@ -2,6 +2,9 @@
 
 Ce document est destiné à un LLM pour comprendre rapidement le projet et aider à modifier le code.
 
+Règlement Eurobot 2027 : https://www.eurobot.org/wp-content/uploads/2026/09/Eurobot2027_Rules_FR.pdf
+(copie locale éventuelle dans `doc/`, non versionnée)
+
 ---
 
 ## Résumé projet
