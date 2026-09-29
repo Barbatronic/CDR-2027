@@ -97,9 +97,9 @@ ENC_LEFT_INVERT=false, ENC_RIGHT_INVERT=true
 Encodeurs : PCNT_UNIT_2 (right, pins 1/2), PCNT_UNIT_3 (left, pins 6/7)
 
 // Dimensions robot
-ROBOT_BACK_TO_CENTER_MM=80.9f
-ROBOT_FRONT_TO_CENTER_MM = ROBOT_LENGTH_MM - ROBOT_BACK_TO_CENTER_MM
-ROBOT_LENGTH_MM=161.8f, ROBOT_WIDTH_MM=232.0f
+ROBOT_BACK_TO_CENTER_MM=134.82f   // 2027 : sabot inversé
+ROBOT_FRONT_TO_CENTER_MM=80.9f    // bras bas ouverts
+ROBOT_LENGTH_MM≈215.7 (avant + arrière), ROBOT_WIDTH_MM=232.0f (valeur 2026, à revérifier)
 
 // Prise/dépose de stock
 STOCK_TOOL_OFFSET_MM=210      // centre robot → centre stock en prise

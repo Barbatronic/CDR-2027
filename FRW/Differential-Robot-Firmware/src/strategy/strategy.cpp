@@ -29,6 +29,7 @@
 #include "../io/buttons.h"
 #include "../display/oled.h"
 #include <Wire.h>
+#include <math.h>
 
 // ─── Calibration géométrique ─────────────────────────────────────────────────
 void runCalibration(Robot &robot, QuadEncoder &encL, QuadEncoder &encR) {
@@ -57,33 +58,33 @@ void runCalibration(Robot &robot, QuadEncoder &encL, QuadEncoder &encR) {
     Serial.println("=====================================\n");
 }
 
-// ─── Calage bordure jaune ─────────────────────────────────────────────────────
+// ─── Calage bordure jaune (coin du fond gauche) ─────────────────────────────
 void runInitYellow(Robot &robot) {
     robot.enableMotors();
     robot.disableObstacle();
-    initActuators();
+    initActuators();                     // bras ouverts pendant tout le calage
 
     robot.setSpeedPct(10); // Change la vitesse et accel pour le calage, afin de limiter les risques de rebonds
 
-    // ── Calage X — plaquage contre la bordure Ouest ────────────────────────
+    // ── Calage X — arrière plaqué contre la bordure Ouest ──────────────────
     robot.setPosition(0, 0, ANGLE_EAST);
-    robot.goStall(-150);                 // recule jusqu'au contact de la bordure Ouest
+    robot.goStall(-CALAGE_STALL_MM);     // recule jusqu'au contact de la bordure Ouest
     robot.setPosition(ROBOT_BACK_TO_CENTER_MM, 0, ANGLE_EAST);   // X calé
-    robot.goPID(375-ROBOT_BACK_TO_CENTER_MM);                       // dégage
+    robot.goPID(CALAGE_X_MM - ROBOT_BACK_TO_CENTER_MM);          // dégage
 
-    // ── Calage Y — plaquage contre la bordure Nord ─────────────────────────
-    robot.turnPID(-90.0f);               // s'oriente vers le Sud
-    robot.goStall(-150);                 // recule jusqu'au contact de la bordure Nord
+    // ── Calage Y — arrière plaqué contre la bordure du fond ────────────────
+    robot.turnPID(-90.0f);               // s'oriente vers le Sud (public)
+    robot.goStall(-CALAGE_STALL_MM);     // recule jusqu'au contact de la bordure du fond
     robot.setPosition(robot.getX(), ROBOT_BACK_TO_CENTER_MM, ANGLE_SOUTH);  // Y calé, X inchangé
-    robot.goPID(225);                       // dégage
+    robot.goPID(CALAGE_Y_MM - ROBOT_BACK_TO_CENTER_MM);          // dégage
 
-    // ── Position de départ ─────────────────────────────────────────────────
-    robot.gotoXYenc(POI::startYellow,283);
+    // ── Salle du trône, orienté vers la première carrière ──────────────────
+    robot.gotoXYenc(POI::startYellow, angleVers(POI::startYellow, POI::carriere_01));
 
     robot.resetSpeed(); // remet les vitesses par défaut pour la stratégie
 }
 
-// ─── Calage bordure bleu ──────────────────────────────────────────────────────
+// ─── Calage bordure bleu (coin du fond droit) — symétrique ──────────────────
 void runInitBlue(Robot &robot) {
     robot.enableMotors();
     robot.disableObstacle();
@@ -91,22 +92,132 @@ void runInitBlue(Robot &robot) {
 
     robot.setSpeedPct(10);
 
-    // ── Calage X — plaquage contre la bordure Est ──────────────────────────
+    // ── Calage X — arrière plaqué contre la bordure Est ────────────────────
     robot.setPosition(TABLE_WIDTH_MM, 0, ANGLE_WEST);
-    robot.goStall(-150);                  // recule (Est) contre la bordure Est
+    robot.goStall(-CALAGE_STALL_MM);
     robot.setPosition(TABLE_WIDTH_MM - ROBOT_BACK_TO_CENTER_MM, 0, ANGLE_WEST);
-    robot.goPID(TABLE_WIDTH_MM - ROBOT_BACK_TO_CENTER_MM - POI::startBlue.x);  // dégage vers l'Ouest
+    robot.goPID(CALAGE_X_MM - ROBOT_BACK_TO_CENTER_MM);
 
-    // ── Calage Y — plaquage contre la bordure Nord ─────────────────────────
-    robot.turnPID(90.0f);                 // s'oriente vers le Sud (180°→270°)
-    robot.goStall(-150);                  // recule (Nord) contre la bordure Nord
+    // ── Calage Y — arrière plaqué contre la bordure du fond ────────────────
+    robot.turnPID(90.0f);                // s'oriente vers le Sud (180° → 270°)
+    robot.goStall(-CALAGE_STALL_MM);
     robot.setPosition(robot.getX(), ROBOT_BACK_TO_CENTER_MM, ANGLE_SOUTH);
-    robot.goPID(POI::startBlue.y);        // dégage vers le Sud
+    robot.goPID(CALAGE_Y_MM - ROBOT_BACK_TO_CENTER_MM);
 
-    // ── Position de départ ─────────────────────────────────────────────────
-    robot.gotoXYenc(POI::startBlue, 257);
+    // ── Salle du trône, orienté vers la première carrière ──────────────────
+    robot.gotoXYenc(POI::startBlue, angleVers(POI::startBlue, POI::carriere_04));
 
     robot.resetSpeed();
+}
+
+// ─── Outils géométriques ─────────────────────────────────────────────────────
+static constexpr float DEG2RAD = 3.14159265f / 180.0f;
+
+// Point à `dist` mm devant `p` dans la direction `deg` (Y+ vers le public)
+static Vec2 avancer(Vec2 p, float deg, float dist) {
+    return Vec2(p.x + dist * cosf(deg * DEG2RAD), p.y - dist * sinf(deg * DEG2RAD));
+}
+
+float angleVers(Vec2 from, Vec2 to) {
+    float deg = atan2f(-(to.y - from.y), to.x - from.x) / DEG2RAD;
+    return (deg < 0) ? deg + 360.0f : deg;
+}
+
+// Approche finale lente en ligne droite, détection obstacle coupée
+// (les pierres sont vues par le LIDAR et prises pour un adversaire).
+static void approcheLente(Robot &robot, float mm) {
+    float spd = robot.getSpeed(), acc = robot.getAcceleration();
+    robot.setSpeedPct(APPROCHE_VITESSE_PCT, APPROCHE_VITESSE_PCT);
+    robot.goPID(mm);
+    robot.setSpeed(spd);
+    robot.setAcceleration(acc);
+}
+
+// ─── Prise d'une carrière ────────────────────────────────────────────────────
+//
+//   [amont] ──PRE_APPROCHE──▶ [approche] ──offset──▶ [contact]  |carrière|
+//
+//  Au contact, l'avant du robot touche la face de la carrière : le centre des
+//  pierres est à (avant + épaisseur/2) devant l'axe des roues.
+void prendreCarriere(Robot &robot, Vec2 carriere, float approachDeg, float offsetMm) {
+    const float contact = ROBOT_FRONT_TO_CENTER_MM + PIERRE_EPAISSEUR_MM / 2;
+    Vec2 approche = avancer(carriere, approachDeg + 180.0f, contact + offsetMm);
+    Vec2 amont    = avancer(approche, approachDeg + 180.0f, CARRIERE_PRE_APPROCHE_MM);
+
+    LOG_I("STRAT", "Prise carriere (%.0f,%.0f) a %.0f deg", (double)carriere.x, (double)carriere.y, (double)approachDeg);
+    ouvrirBras();
+    robot.gotoXYenc(amont, approachDeg);            // détection obstacle active
+
+    robot.disableObstacle();
+    robot.gotoXYenc(approche, approachDeg);
+    approcheLente(robot, offsetMm);                 // avant contre la carrière
+    prendreBloc();
+    robot.goPID(-CARRIERE_RECUL_MM);
+    robot.enableObstacle();
+}
+
+// ─── Dépose sur un mur ───────────────────────────────────────────────────────
+// Axe de chaque mur (°, repère table). Les murs _2/_4 sont à 45° entre deux tours.
+struct MurDef { Vec2 pos; float axeDeg; Vec2 cour; };
+static const MurDef MURS[] = {
+    {POI::murYellow_1,   0.0f, POI::courYellow},
+    {POI::murYellow_2, 135.0f, POI::courYellow},
+    {POI::murYellow_3,  90.0f, POI::courYellow},
+    {POI::murYellow_4,  45.0f, POI::courYellow},
+    {POI::murYellow_5,   0.0f, POI::courYellow},
+    {POI::murBlue_1,     0.0f, POI::courBlue},
+    {POI::murBlue_2,    45.0f, POI::courBlue},
+    {POI::murBlue_3,    90.0f, POI::courBlue},
+    {POI::murBlue_4,   135.0f, POI::courBlue},
+    {POI::murBlue_5,     0.0f, POI::courBlue},
+};
+
+bool deposerMur(Robot &robot, Vec2 mur) {
+    const MurDef *def = nullptr;
+    for (const MurDef &m : MURS)
+        if (m.pos.x == mur.x && m.pos.y == mur.y) def = &m;
+    if (!def) {
+        LOG_E("STRAT", "deposerMur : (%.0f,%.0f) n'est pas un mur", (double)mur.x, (double)mur.y);
+        return false;
+    }
+
+    // Robot perpendiculaire au mur (pierres alignées sur l'axe du mur),
+    // du côté extérieur : il regarde vers la cour.
+    float cap = def->axeDeg + 90.0f;
+    float versCour = angleVers(mur, def->cour);
+    if (cosf((versCour - cap) * DEG2RAD) < 0) cap += 180.0f;
+    if (cap >= 360.0f) cap -= 360.0f;
+
+    const float contact = ROBOT_FRONT_TO_CENTER_MM + PIERRE_EPAISSEUR_MM / 2;
+    Vec2 approche = avancer(mur, cap + 180.0f, contact + DEPOSE_APPROCHE_MM);
+
+    LOG_I("STRAT", "Depose mur (%.0f,%.0f) cap %.0f deg", (double)mur.x, (double)mur.y, (double)cap);
+    robot.gotoXYenc(approche, cap);
+
+    robot.disableObstacle();
+    approcheLente(robot, DEPOSE_APPROCHE_MM);       // pierres au-dessus de la zone
+    ouvrirBras();                                   // relâche
+    robot.goPID(-DEPOSE_RECUL_MM);
+    robot.enableObstacle();
+    return true;
+}
+
+// ─── Tir depuis la cour ──────────────────────────────────────────────────────
+// Entrée dans le château par le mur 3 (face au centre), puis salle du trône.
+void tirerDepuisCour(Robot &robot, Team team) {
+    const bool jaune = (team == Team::YELLOW);
+    Vec2  entree = jaune ? avancer(POI::murYellow_3, ANGLE_EAST, 300.0f)
+                         : avancer(POI::murBlue_3,   ANGLE_WEST, 300.0f);
+    Vec2  poste  = jaune ? POI::startYellow : POI::startBlue;
+    float cap    = jaune ? ANGLE_SOUTH : ANGLE_NORTH;   // flanc gauche vers l'adversaire
+
+    robot.gotoXYenc(entree);
+    robot.gotoXYenc(poste, cap);
+
+#if TIR_ATTENDRE_PHASE_ATTAQUE
+    robot.waitMatchTime(MATCH_ENDGAME_MS);              // phase d'attaque : 85 s → fin
+#endif
+    launchBalls(TIR_ROUE_G_PCT, TIR_ROUE_D_PCT, TIR_DUREE_MS);
 }
 
 // ─── Self-test matériel ───────────────────────────────────────────────────────
@@ -186,14 +297,24 @@ void launchBalls(float pctL, float pctR, uint32_t durationMs, float feedPct) {
 }
 
 // ─── Stratégie jaune ──────────────────────────────────────────────────────────
-// TODO 2027 : stratégie de match. Pour l'instant : lancer de test sur place.
+// Essai : carrière 1 → mur 2 → retour dans la cour → tir.
 void runStrategyYellow(Robot &robot) {
-    launchBalls(30, 30);
+    robot.enableObstacle();
+    robot.setSpeedPct(50, 50);
+
+    prendreCarriere(robot, POI::carriere_01, ANGLE_NORTH);
+    deposerMur(robot, POI::murYellow_2);
+    tirerDepuisCour(robot, Team::YELLOW);
 }
 
-// ─── Stratégie bleue ──────────────────────────────────────────────────────────
+// ─── Stratégie bleue — symétrique ─────────────────────────────────────────────
 void runStrategyBlue(Robot &robot) {
-    launchBalls(30, 30);
+    robot.enableObstacle();
+    robot.setSpeedPct(50, 50);
+
+    prendreCarriere(robot, POI::carriere_04, ANGLE_NORTH);
+    deposerMur(robot, POI::murBlue_2);
+    tirerDepuisCour(robot, Team::BLUE);
 }
 
 // ─── Repli fin de match jaune ─────────────────────────────────────────────────

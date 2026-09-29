@@ -64,7 +64,36 @@
 #define WHEELBASE_MM            145.60f  // distance entre roues motrices (à mesurer)
 
 // ─── DIMENSIONS ROBOT ────────────────────────────────────────────────────────
-#define ROBOT_BACK_TO_CENTER_MM  80.9f  // arrière du robot → axe des roues
+// Sabot inversé en 2027. Avant mesuré bras bas ouverts : bras fermés/repos, ils
+// dépassent et butent contre les bordures → bras ouverts près des bordures.
+#define ROBOT_BACK_TO_CENTER_MM   134.82f  // arrière du robot → axe des roues
+#define ROBOT_FRONT_TO_CENTER_MM   80.9f   // avant du robot (bras ouverts) → axe des roues
+
+// ─── CALAGE (coin du fond, même endroit qu'en 2026) ─────────────────────────
+// Poser le robot arrière vers la bordure latérale, flanc à 7-25 cm de la
+// bordure du fond (rayon de rotation ≈ 178 mm autour de l'axe).
+#define CALAGE_STALL_MM         250.0f  // course max du recul jusqu'au contact bordure
+#define CALAGE_X_MM             375.0f  // centre robot ↔ bordure latérale après dégagement
+#define CALAGE_Y_MM             360.0f  // centre robot ↔ bordure du fond après dégagement
+
+// ─── PRISE CARRIÈRE / DÉPOSE MUR ─────────────────────────────────────────────
+#define PIERRE_EPAISSEUR_MM     110.0f  // profondeur d'une carrière (pierre couchée 320×110×110)
+#define CARRIERE_APPROCHE_MM    100.0f  // décalage avant ↔ face de la carrière avant la prise
+#define CARRIERE_PRE_APPROCHE_MM 400.0f // point amont (détection obstacle encore active)
+#define CARRIERE_RECUL_MM       150.0f  // recul après la prise
+#define DEPOSE_APPROCHE_MM      100.0f  // décalage avant la dépose
+#define DEPOSE_RECUL_MM         150.0f  // recul après la dépose
+#define APPROCHE_VITESSE_PCT     15.0f  // vitesse des approches finales (%)
+
+// ─── TIR ─────────────────────────────────────────────────────────────────────
+// Les balles sortent par le flanc GAUCHE du robot : en jaune le robot regarde
+// vers le public (270°), en bleu vers le fond (90°) → gauche = côté adverse.
+#define TIR_ROUE_G_PCT           30.0f  // roue canal 0 (%)
+#define TIR_ROUE_D_PCT           30.0f  // roue canal 1 (%)
+#define TIR_DUREE_MS             3000   // durée d'alimentation du ventilateur (ms)
+// 1 = attendre la phase d'attaque (85 s) avant de tirer — obligatoire en match
+// 0 = tir immédiat (essais)
+#define TIR_ATTENDRE_PHASE_ATTAQUE  0
 
 // ─── CINÉMATIQUE ─────────────────────────────────────────────────────────────
 #define DEFAULT_SPEED_MMS   2000.0f    // mm/s

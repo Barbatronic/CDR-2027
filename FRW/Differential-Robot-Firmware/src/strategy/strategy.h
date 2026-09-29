@@ -26,6 +26,27 @@ void runFlywheelTest();
 void launchBalls(float pctL, float pctR, uint32_t durationMs = LAUNCH_DURATION_MS,
                  float feedPct = LAUNCH_FEED_PCT);
 
+// ─── Actions de jeu ──────────────────────────────────────────────────────────
+// Angle (°, repère table) pour regarder `to` depuis `from`.
+float angleVers(Vec2 from, Vec2 to);
+
+// Prise d'une carrière (pile de 3 pierres couchées) avec les bras bas.
+// Déposée telle quelle sur une zone de mur, la pile forme un mur valide.
+// approachDeg : orientation du robot face à la carrière (ANGLE_NORTH pour les
+// carrières du fond, ANGLE_SOUTH côté public, EAST/WEST pour celles du centre).
+// offsetMm    : distance avant du robot ↔ face de la carrière avant d'avancer.
+void prendreCarriere(Robot &robot, Vec2 carriere, float approachDeg,
+                     float offsetMm = CARRIERE_APPROCHE_MM);
+
+// Dépose des pierres tenues sur une zone de mur (POI::murYellow_x / murBlue_x).
+// L'orientation est déduite du mur ; le robot approche depuis l'extérieur du
+// château, face à la cour. Retourne false si le POI n'est pas un mur connu.
+bool deposerMur(Robot &robot, Vec2 mur);
+
+// Retour dans la salle du trône par l'entrée du château (mur 3), orienté pour
+// tirer par le flanc gauche vers l'adversaire, puis tir.
+void tirerDepuisCour(Robot &robot, Team team);
+
 // ─── Stratégie de match ───────────────────────────────────────────────────────
 void runStrategyYellow(Robot &robot);
 void runStrategyBlue(Robot &robot);
