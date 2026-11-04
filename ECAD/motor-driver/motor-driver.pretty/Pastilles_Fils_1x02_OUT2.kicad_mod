@@ -1,0 +1,152 @@
+(footprint "Pastilles_Fils_1x02_OUT2"
+	(version 20260206)
+	(generator "pcbnew")
+	(generator_version "10.0")
+	(layer "F.Cu")
+	(descr "2 pastilles CMS 2,0 x 2,2 mm pour la charge de la voie 2 : 1 = OUT2- (drain Q2), 2 = OUT2+ (12 V). Pas de pâte à braser.")
+	(tags "pastilles fils soudure wire pad")
+	(property "Reference" "REF**"
+		(at 0 0 0)
+		(layer "F.SilkS")
+		(hide yes)
+		(uuid "d1ba7c2d-75f3-4d4c-af60-97ba7a7b724f")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Value" "Pastilles_Fils_1x02_OUT2"
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "82433d3c-644b-4f4c-a16e-7e22ae3670e2")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Datasheet" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "e7b78c90-91fe-4e68-8ded-1c66a7002bea")
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Description" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "fe945c49-0aaf-4cdb-b658-9f388033397b")
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.15)
+			)
+		)
+	)
+	(attr smd exclude_from_pos_files exclude_from_bom)
+	(duplicate_pad_numbers_are_jumpers no)
+	(fp_text user "OUT2"
+		(at 0 -1.7 0)
+		(layer "F.SilkS")
+		(uuid "118df745-69ab-42da-a36b-db8b550ed385")
+		(effects
+			(font
+				(size 0.7 0.7)
+				(thickness 0.15)
+			)
+		)
+	)
+	(fp_text user "-"
+		(at -3.55 0 0)
+		(layer "F.SilkS")
+		(uuid "d1cb7ac4-4cc8-42ab-bb1d-9e63827e650c")
+		(effects
+			(font
+				(size 0.8 0.8)
+				(thickness 0.15)
+			)
+		)
+	)
+	(fp_text user "+"
+		(at 3.45 0 0)
+		(layer "F.SilkS")
+		(uuid "1202e9d8-76ec-46e2-9e69-46360953d6e6")
+		(effects
+			(font
+				(size 0.8 0.8)
+				(thickness 0.15)
+			)
+		)
+	)
+	(fp_rect
+		(start -3.05 -1.35)
+		(end -0.55 1.35)
+		(stroke
+			(width 0.05)
+			(type solid)
+		)
+		(fill no)
+		(layer "F.CrtYd")
+		(uuid "606fd204-cf30-447a-9f75-a08b37e25ed3")
+	)
+	(fp_rect
+		(start -2.8 -1.1)
+		(end -0.8 1.1)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(fill no)
+		(layer "F.Fab")
+		(uuid "74ceb142-1b9a-405a-9065-643e5e892791")
+	)
+	(fp_rect
+		(start 0.55 -1.35)
+		(end 3.05 1.35)
+		(stroke
+			(width 0.05)
+			(type solid)
+		)
+		(fill no)
+		(layer "F.CrtYd")
+		(uuid "9d809826-48a6-4612-9de2-4de94bac4302")
+	)
+	(fp_rect
+		(start 0.8 -1.1)
+		(end 2.8 1.1)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(fill no)
+		(layer "F.Fab")
+		(uuid "5fc078f2-bbd6-40c0-a3fc-fb574b7eb4ad")
+	)
+	(pad "1" smd roundrect
+		(at -1.8 0)
+		(size 2 2.2)
+		(layers "F.Cu" "F.Mask")
+		(roundrect_rratio 0.2)
+		(pintype "passive")
+		(uuid "e2584fc4-783a-44b1-b40d-523eabd529f8")
+	)
+	(pad "2" smd roundrect
+		(at 1.8 0)
+		(size 2 2.2)
+		(layers "F.Cu" "F.Mask")
+		(roundrect_rratio 0.2)
+		(pintype "passive")
+		(uuid "6262c4cf-3cfc-418c-80cd-266aa17a10e0")
+	)
+	(embedded_fonts no)
+)

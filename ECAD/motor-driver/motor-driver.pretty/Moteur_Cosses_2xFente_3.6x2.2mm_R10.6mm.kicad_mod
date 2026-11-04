@@ -1,0 +1,262 @@
+(footprint "Moteur_Cosses_2xFente_3.6x2.2mm_R10.6mm"
+	(version 20260206)
+	(generator "pcbnew")
+	(generator_version "10.0")
+	(layer "F.Cu")
+	(descr "Liaison directe carte / moteur : 2 fentes métallisées 3,6 x 2,2 mm diamétralement opposées, centrées à 10,6 mm de l'axe, pour les cosses d'un MF360S (r 11,2) ou d'un moteur de pompe (r 10,0). Origine = axe moteur. Carte prévue en Ø 26 mm avec trou central Ø 11 mm. Pastille 1 = drain MOSFET (-), pastille 2 = +12 V.")
+	(tags "moteur cosses fente RS-360 MF360S pompe")
+	(property "Reference" "REF**"
+		(at 0 -7.2 0)
+		(layer "F.SilkS")
+		(uuid "cd5d1344-ed5a-494b-93a2-e1a58834232e")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Value" "Moteur_Cosses_2xFente_3.6x2.2mm_R10.6mm"
+		(at 0 7.2 0)
+		(layer "F.Fab")
+		(uuid "e2e687be-f013-444d-92ab-3214cb961f6c")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Datasheet" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "2926ec5a-b80e-442a-9996-e07c2212180a")
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Description" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "cd1d98f2-61ee-4ffa-9cc9-5eda68d0d3e2")
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.15)
+			)
+		)
+	)
+	(attr through_hole exclude_from_pos_files exclude_from_bom)
+	(duplicate_pad_numbers_are_jumpers no)
+	(fp_text user "-"
+		(at 3.4 -10.6 0)
+		(layer "F.SilkS")
+		(uuid "08af9c9a-d2dc-4080-977d-707e520a91cc")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(fp_text user "+"
+		(at 3.4 10.6 0)
+		(layer "F.SilkS")
+		(uuid "eb478b05-bd9e-4e40-8b0b-e33ae85990d0")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(fp_rect
+		(start -2.65 -12.55)
+		(end 2.65 -8.65)
+		(stroke
+			(width 0.05)
+			(type solid)
+		)
+		(fill no)
+		(layer "F.CrtYd")
+		(uuid "0f90a9c2-4d99-4e27-ab9f-51b92d310b40")
+	)
+	(fp_rect
+		(start -2.65 8.65)
+		(end 2.65 12.55)
+		(stroke
+			(width 0.05)
+			(type solid)
+		)
+		(fill no)
+		(layer "F.CrtYd")
+		(uuid "6c861091-863f-4323-b751-5b26d2063d53")
+	)
+	(fp_circle
+		(center 0 0)
+		(end 13 0)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(fill no)
+		(layer "F.Fab")
+		(uuid "99451678-35f3-42aa-80d1-9bc3b030711f")
+	)
+	(fp_circle
+		(center 0 0)
+		(end 5.5 0)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(fill no)
+		(layer "F.Fab")
+		(uuid "ea194e85-b2f8-493d-ae8a-d65424fb5f35")
+	)
+	(fp_rect
+		(start -1.8 -11.7)
+		(end 1.8 -9.5)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(fill no)
+		(layer "F.Fab")
+		(uuid "34ef8486-08ec-46af-94f8-8470faaffe7a")
+	)
+	(fp_rect
+		(start -1.8 9.5)
+		(end 1.8 11.7)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(fill no)
+		(layer "F.Fab")
+		(uuid "25973a4b-d420-488a-b5cb-3bcb496a4e99")
+	)
+	(fp_text user "${REFERENCE}"
+		(at 0 -7.2 0)
+		(layer "F.Fab")
+		(uuid "f4272e0b-a1a4-4720-b847-9be6fae8e182")
+		(effects
+			(font
+				(size 0.8 0.8)
+				(thickness 0.12)
+			)
+		)
+	)
+	(fp_circle
+		(center 0 0)
+		(end 13.84 0)
+		(stroke
+			(width 0.1)
+			(type dash)
+		)
+		(fill no)
+		(layer "Dwgs.User")
+		(uuid "7c5c6ecf-3dff-44a5-be0d-94ecb856f79c")
+	)
+	(fp_circle
+		(center 0 0)
+		(end 4.945 0)
+		(stroke
+			(width 0.1)
+			(type dash)
+		)
+		(fill no)
+		(layer "Dwgs.User")
+		(uuid "c9551611-44a3-4486-9aff-f89d244d8873")
+	)
+	(fp_rect
+		(start -1.52 -11.4)
+		(end 1.52 -11)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(fill no)
+		(layer "Dwgs.User")
+		(uuid "e8ca1fec-ee9f-4127-9e9f-77cb0a48d877")
+	)
+	(fp_rect
+		(start -1.52 11)
+		(end 1.52 11.4)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(fill no)
+		(layer "Dwgs.User")
+		(uuid "71afe906-9cf1-4c45-b189-17e3795ebc7a")
+	)
+	(fp_circle
+		(center 0 0)
+		(end 12.065 0)
+		(stroke
+			(width 0.1)
+			(type dot)
+		)
+		(fill no)
+		(layer "Dwgs.User")
+		(uuid "18eda02b-a056-4dac-b39c-253964131117")
+	)
+	(fp_circle
+		(center 0 0)
+		(end 3.195 0)
+		(stroke
+			(width 0.1)
+			(type dot)
+		)
+		(fill no)
+		(layer "Dwgs.User")
+		(uuid "975c9ecc-007c-49de-9bbc-b266c89e9f69")
+	)
+	(fp_rect
+		(start -0.94 -10.2)
+		(end 0.94 -9.8)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(fill no)
+		(layer "Dwgs.User")
+		(uuid "8fdaa518-c361-40c2-94e6-566c5376569d")
+	)
+	(fp_rect
+		(start -0.94 9.8)
+		(end 0.94 10.2)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(fill no)
+		(layer "Dwgs.User")
+		(uuid "5ba46179-3a1a-452a-9fa2-4fc54aa6fc11")
+	)
+	(pad "1" thru_hole oval
+		(at 0 -10.6)
+		(size 4.8 3.4)
+		(drill oval 3.6 2.2)
+		(layers "*.Cu" "F.Mask")
+		(remove_unused_layers no)
+		(pintype "passive")
+		(uuid "ada52e86-e009-49be-95aa-0792948622c8")
+	)
+	(pad "2" thru_hole oval
+		(at 0 10.6)
+		(size 4.8 3.4)
+		(drill oval 3.6 2.2)
+		(layers "*.Cu" "F.Mask")
+		(remove_unused_layers no)
+		(pintype "passive")
+		(uuid "9a19f211-0d01-42a9-ad6a-bf61e0d6fe40")
+	)
+	(embedded_fonts no)
+)

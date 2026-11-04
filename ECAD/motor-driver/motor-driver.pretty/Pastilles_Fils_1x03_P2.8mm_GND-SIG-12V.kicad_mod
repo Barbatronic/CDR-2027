@@ -1,0 +1,149 @@
+(footprint "Pastilles_Fils_1x03_P2.8mm_GND-SIG-12V"
+	(version 20260206)
+	(generator "pcbnew")
+	(generator_version "10.0")
+	(layer "F.Cu")
+	(descr "3 pastilles CMS 2,8 x 2,0 mm au pas de 2,8 mm pour souder directement les fils : pastille 1 = GND, 3 = signal, 2 = 12 V (ordre physique GND / SIG / 12 V). Pas de pâte à braser.")
+	(tags "pastilles fils soudure wire pad")
+	(property "Reference" "REF**"
+		(at 0 -5.9 0)
+		(layer "F.SilkS")
+		(hide yes)
+		(uuid "8569357c-69d8-4570-9b6c-eb384ca26ed3")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Value" "Pastilles_Fils_1x03_P2.8mm_GND-SIG-12V"
+		(at 0 5.2 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "9b944b07-2029-4279-97b3-09f0ab823267")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Datasheet" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "c920bad3-675d-4fbb-8b9a-37ca3eafe84b")
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Description" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "a86f4225-2d46-4493-b82a-4458c64073b2")
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.15)
+			)
+		)
+	)
+	(attr smd exclude_from_pos_files exclude_from_bom)
+	(duplicate_pad_numbers_are_jumpers no)
+	(fp_text user "GND"
+		(at 0.3 -4.65 0)
+		(layer "F.SilkS")
+		(uuid "15652558-b525-4106-b015-26f72fe5331c")
+		(effects
+			(font
+				(size 0.8 0.8)
+				(thickness 0.15)
+			)
+		)
+	)
+	(fp_text user "SIG"
+		(at -2.9 0.1 0)
+		(layer "F.SilkS")
+		(uuid "6e41cdb7-5ab7-422c-93de-f0e59a24ed08")
+		(effects
+			(font
+				(size 0.8 0.8)
+				(thickness 0.15)
+			)
+		)
+	)
+	(fp_text user "12V"
+		(at -2.95 2.8 0)
+		(layer "F.SilkS")
+		(uuid "f2fe6bf6-c94f-43cf-8d2b-8bd3e0674b8c")
+		(effects
+			(font
+				(size 0.8 0.8)
+				(thickness 0.15)
+			)
+		)
+	)
+	(fp_rect
+		(start -1.65 -4.05)
+		(end 1.65 4.05)
+		(stroke
+			(width 0.05)
+			(type solid)
+		)
+		(fill no)
+		(layer "F.CrtYd")
+		(uuid "63a69c94-dbcc-434d-b644-ce945488514c")
+	)
+	(fp_rect
+		(start -1.4 -3.8)
+		(end 1.4 3.8)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(fill no)
+		(layer "F.Fab")
+		(uuid "01062988-0462-4686-b781-0e25669e477e")
+	)
+	(fp_text user "${REFERENCE}"
+		(at 0 -1.4 0)
+		(layer "F.Fab")
+		(uuid "4569f4dc-b7fc-4103-9697-993f1b820340")
+		(effects
+			(font
+				(size 0.6 0.6)
+				(thickness 0.1)
+			)
+		)
+	)
+	(pad "1" smd roundrect
+		(at 0 -2.8)
+		(size 2.8 2)
+		(layers "F.Cu" "F.Mask")
+		(roundrect_rratio 0.2)
+		(pintype "passive")
+		(uuid "4d6ea144-b6d6-45ae-baed-fe2a567265f9")
+	)
+	(pad "3" smd roundrect
+		(at 0 0)
+		(size 2.8 2)
+		(layers "F.Cu" "F.Mask")
+		(roundrect_rratio 0.2)
+		(pintype "passive")
+		(uuid "a75a5bec-0d95-44ce-b897-467794c1f882")
+	)
+	(pad "2" smd roundrect
+		(at 0 2.8)
+		(size 2.8 2)
+		(layers "F.Cu" "F.Mask")
+		(roundrect_rratio 0.2)
+		(pintype "passive")
+		(uuid "8f049522-9f58-47bd-87b3-484fa282a84d")
+	)
+	(embedded_fonts no)
+)
