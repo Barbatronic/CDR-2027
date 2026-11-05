@@ -661,7 +661,7 @@
         "uuid": "14b9d827-5cca-4cc8-bcaa-ddaab9d56d65"
       }
     ],
-    "used_designators": "USB\\-Prog1,PS1,#PWR1-79,#PWR104,#PWR111-122,#PWR131-132,#PWR136-143,#PWR145-148,#PWR151,#PWR159-164,#PWR167-169,#PWR177-178,BZ2,C1-19,SWBoot1-2,SWEn1,H1-4,K2,J1-18,J20,J22-32,J100,JP1-2,R1-25,SW1-4,D1-19,U1-8,F1",
+    "used_designators": "U2,R3,C6,#PWR2,#PWR5,#PWR16",
     "variants": []
   },
   "sheets": [
