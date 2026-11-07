@@ -228,6 +228,7 @@ restart:   // point de retour pour GOTO_WAIT_INIT / RESTART_MATCH
     gDisplay.team = teamSwitch();
     ledsSetTeam(gDisplay.team);
     gDisplay.robot_state = RobotState::WAIT_INIT;
+    gDisplay.match_phase = MatchPhase::WAIT_INIT;
 
     // États : WAIT_INIT → WAIT_TIRETTE_IN → WAIT_TIRETTE_OUT → match
     enum class Phase : uint8_t { WAIT_INIT, WAIT_TIRETTE_IN, WAIT_TIRETTE_OUT };
@@ -249,10 +250,12 @@ restart:   // point de retour pour GOTO_WAIT_INIT / RESTART_MATCH
             }
             if (cmd == StateCmd::RESTART_INIT)  {
                 gDisplay.robot_state = RobotState::INIT;
+                gDisplay.match_phase = MatchPhase::CALAGE;
                 if (gDisplay.team == Team::YELLOW) runInitYellow(robot);
                 else                               runInitBlue(robot);
                 phase = Phase::WAIT_TIRETTE_IN;
                 gDisplay.robot_state = RobotState::WAIT_TIRETTE_IN;
+                gDisplay.match_phase = MatchPhase::WAIT_TIRETTE_IN;
             }
         }
 
@@ -263,22 +266,26 @@ restart:   // point de retour pour GOTO_WAIT_INIT / RESTART_MATCH
             ledsSetTeam(t);
             phase = Phase::WAIT_INIT;
             gDisplay.robot_state = RobotState::WAIT_INIT;
+            gDisplay.match_phase = MatchPhase::WAIT_INIT;
         }
 
         switch (phase) {
         case Phase::WAIT_INIT:
             if (initPressed()) {
                 gDisplay.robot_state = RobotState::INIT;
+                gDisplay.match_phase = MatchPhase::CALAGE;
                 if (gDisplay.team == Team::YELLOW) runInitYellow(robot);
                 else                               runInitBlue(robot);
                 phase = Phase::WAIT_TIRETTE_IN;
                 gDisplay.robot_state = RobotState::WAIT_TIRETTE_IN;
+                gDisplay.match_phase = MatchPhase::WAIT_TIRETTE_IN;
             }
             break;
         case Phase::WAIT_TIRETTE_IN:
             if (!tirette()) {
                 phase = Phase::WAIT_TIRETTE_OUT;
                 gDisplay.robot_state = RobotState::WAIT_TIRETTE_OUT;
+                gDisplay.match_phase = MatchPhase::READY;
             }
             break;
         case Phase::WAIT_TIRETTE_OUT:
@@ -291,6 +298,7 @@ restart:   // point de retour pour GOTO_WAIT_INIT / RESTART_MATCH
     // ── Match ─────────────────────────────────────────────────────────────────
 match_start:
     robot.startMatch();
+    gDisplay.match_phase = MatchPhase::MATCH;
 
     if (gDisplay.team == Team::YELLOW) runStrategyYellow(robot);
     else                               runStrategyBlue(robot);
@@ -312,6 +320,7 @@ match_start:
     if (!robot.isMatchOver()) {
         robot.startNearEnd();
         gDisplay.robot_state = RobotState::ENDGAME;
+        gDisplay.match_phase = MatchPhase::ENDGAME;
         if (gDisplay.team == Team::YELLOW) runNearEndYellow(robot);
         else                               runNearEndBlue(robot);
     }
@@ -320,6 +329,7 @@ match_start:
     robot.disableMotors();
     actuatorsDisable();
     gDisplay.robot_state = RobotState::DONE;
+    gDisplay.match_phase = MatchPhase::DONE;
     unlockAfterMatch();
     LOG_I("MAIN", "Match termine");
 
@@ -430,6 +440,9 @@ void loop() {
         wifiLogUpdatePose(gDisplay.enc_pose_x_mm, gDisplay.enc_pose_y_mm, gDisplay.enc_pose_theta_deg,
                           robotStateStr(gDisplay.robot_state),
                           gDisplay.nav_dist_mm, gDisplay.nav_delta_deg, team, canClick);
+        uint32_t elapsed = gDisplay.match_start_ms ? now - gDisplay.match_start_ms : 0;
+        wifiLogUpdateStatus((uint8_t)gDisplay.match_phase, elapsed,
+                            motion.isEnabled(), motion.isLocked());
         wifiLogUpdateActuators(flywheelLeft.getSpeed(), flywheelRight.getSpeed(), feeder.getSpeed(),
                                servoBasGauche.getPercent(), servoBasDroit.getPercent());
         wifiLogUpdateMotion((uint8_t)gMotionCtrl.getState(),

@@ -24,6 +24,27 @@ body {
 .disconnected { background: #3d1a1a; color: #db6060; border: 1px solid #7a3535; }
 #uptime { color: #666; font-size: 11px; margin-left: auto; }
 
+/* ── Barre d'état robot : phase · chrono · moteurs · mouvement ── */
+#status-bar {
+  background: #1a1a1a; border-bottom: 1px solid #333; flex-shrink: 0;
+  padding: 6px 14px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+}
+.st-chip {
+  padding: 4px 12px; border-radius: 4px; font-size: 13px; font-weight: bold;
+  border: 1px solid #444; background: #262626; color: #aaa; white-space: nowrap;
+}
+.st-chip small { font-weight: normal; opacity: .8; margin-left: 6px; }
+.st-gray   { background: #262626; color: #aaa;    border-color: #444; }
+.st-blue   { background: #0f2238; color: #74c0fc; border-color: #1f4f80; }
+.st-yellow { background: #3d3000; color: #ffd43b; border-color: #7a6000; }
+.st-green  { background: #1e3d1a; color: #6ddb60; border-color: #3d7a35; }
+.st-orange { background: #3d2400; color: #ffa94d; border-color: #7a4a00; }
+.st-red    { background: #3d1a1a; color: #ff6b6b; border-color: #7a3535; }
+#st-clock { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #ccc; }
+#st-clock-bar { width: 120px; height: 6px; background: #333; border-radius: 3px; overflow: hidden; }
+#st-clock-fill { height: 100%; width: 0; background: #6ddb60; transition: width .2s; }
+#st-clock-fill.endgame { background: #ffa94d; }
+
 /* ── Badge équipe ── */
 #team-badge {
   padding: 3px 10px; border-radius: 10px; font-size: 12px; font-weight: bold;
@@ -260,6 +281,16 @@ body {
   <span id="uptime"></span>
 </div>
 
+<div id="status-bar">
+  <span class="st-chip st-gray" id="st-phase" title="Phase du match">—</span>
+  <span id="st-clock" style="display:none">
+    <b id="st-clock-txt">0 s</b><span style="color:#666">/ 100 s</span>
+    <span id="st-clock-bar"><span id="st-clock-fill" style="display:block"></span></span>
+  </span>
+  <span class="st-chip st-gray" id="st-motors" title="Alimentation des moteurs de roues">Moteurs —</span>
+  <span class="st-chip st-gray" id="st-move"   title="Mouvement en cours">—</span>
+</div>
+
 <div id="content">
 
   <!-- ═══ COLONNE GAUCHE : terrain + contrôles ═══════════════════════════ -->
@@ -288,8 +319,6 @@ body {
       <span>X</span> <b id="px">—</b> mm
       <span>Y</span> <b id="py">—</b> mm
       <span>&#952;</span> <b id="pa">—</b>°
-      <span>&#x2502;</span>
-      <b id="pstate" style="color:#fff">—</b>
       <span>&#x2502;</span>
       <span>Nav</span> <b id="pnav">—</b>
     </div>
@@ -1089,7 +1118,7 @@ function connect() {
       document.getElementById('px').textContent     = d.x.toFixed(0);
       document.getElementById('py').textContent     = d.y.toFixed(0);
       document.getElementById('pa').textContent     = d.a.toFixed(1);
-      document.getElementById('pstate').textContent = d.state;
+      updateStatusBar();
       document.getElementById('pnav').textContent   =
         d.nd > 0.5 ? d.nd.toFixed(0) + ' mm / Δ' + d.na.toFixed(1) + '°' : '—';
       // Badge équipe
@@ -1121,6 +1150,7 @@ function connect() {
 
     } else if (d.type === 'motion') {
       motion = d;
+      updateStatusBar();
       updateMotionPanel();
       drawPose();   // redessine pour le marqueur cible
 
@@ -1167,13 +1197,65 @@ setInterval(() => {
 const ACT_IDS = ['flywheels','flywheelLeft','flywheelRight','feeder','servoBasG','servoBasD'];
 const ACT_CTRL_BTNS = ['btn-seq-stop','btn-run-test','btn-bras-ouvert','btn-bras-prise','btn-bras-repos'];
 
+// Phases envoyées par le firmware (enum MatchPhase, display/oled.h) :
+// [libellé, détail, couleur]
+const PHASES = [
+  ['PRÉ-MATCH', 'appuyer sur INIT',            'st-gray'],
+  ['CALAGE',    'en cours',                    'st-blue'],
+  ['PRÉ-MATCH', 'insérer la tirette',          'st-yellow'],
+  ['PRÊT',      'retirer la tirette = départ', 'st-green'],
+  ['MATCH',     'en cours',                    'st-green'],
+  ['MATCH',     'repli fin de match',          'st-orange'],
+  ['MATCH TERMINÉ', '',                        'st-red'],
+];
+const MOVING_STATES = {'AVANCE':'Avance', 'TOURNE':'Tourne', 'GOTO':'Goto', 'OBSTACLE!':'Obstacle !'};
+
+function setChip(id, cls, html) {
+  const el = document.getElementById(id);
+  el.className = 'st-chip ' + cls;
+  el.innerHTML = html;
+}
+
+function updateStatusBar() {
+  if (pose.ph === undefined) return;   // firmware ancien
+  const ph = PHASES[pose.ph] || ['?', '', 'st-gray'];
+  setChip('st-phase', ph[2], ph[0] + (ph[1] ? '<small>' + ph[1] + '</small>' : ''));
+
+  // Chrono : visible dès que le match a démarré
+  const inMatch = pose.ph >= 4;
+  document.getElementById('st-clock').style.display = inMatch ? 'flex' : 'none';
+  if (inMatch) {
+    const s = Math.min(100, pose.el / 1000);
+    document.getElementById('st-clock-txt').textContent = s.toFixed(0) + ' s';
+    const fill = document.getElementById('st-clock-fill');
+    fill.style.width = s + '%';
+    fill.classList.toggle('endgame', s >= 85);
+  }
+
+  if (pose.ml)      setChip('st-motors', 'st-red',   'Moteurs verrouillés<small>fin de match</small>');
+  else if (pose.mo) setChip('st-motors', 'st-green', 'Moteurs activés');
+  else              setChip('st-motors', 'st-red',   'Moteurs coupés<small>roues libres</small>');
+
+  // Mouvement : déplacements de la stratégie (robot_state) ou tâche motion
+  if (MOVING_STATES[pose.state]) {
+    const obs = pose.state === 'OBSTACLE!';
+    setChip('st-move', obs ? 'st-red' : 'st-blue', MOVING_STATES[pose.state]);
+  } else if (motion && motion.st === 3) {
+    setChip('st-move', 'st-red', 'Obstacle !');
+  } else if (motion && motion.st === 1) {
+    setChip('st-move', 'st-blue', 'En déplacement<small>' + (MOT_PHASE[motion.ph] || '') + '</small>');
+  } else {
+    setChip('st-move', 'st-gray', 'À l\'arrêt');
+  }
+}
+
 function canControl() {
-  return pose.state === 'APPUYER INIT';   // uniquement avant le bouton init
+  return pose.ph === 0;   // actionneurs : uniquement avant le bouton init (MatchPhase::WAIT_INIT)
 }
 
 function setActControl(enabled) {
   const lock = document.getElementById('act-lock');
-  lock.textContent  = enabled ? '&#x1F513; Contrôle actif' : '&#x1F512; Hors pré-match';
+  lock.textContent  = enabled ? '\u{1F513} Contrôle actif' : '\u{1F512} Hors pré-match';
   lock.className    = enabled ? 'unlocked' : 'locked';
   ACT_IDS.forEach(id => {
     document.getElementById('sl-' + id).disabled = !enabled;

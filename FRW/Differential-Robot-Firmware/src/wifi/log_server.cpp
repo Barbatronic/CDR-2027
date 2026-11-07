@@ -21,6 +21,10 @@ void wifiLogPush(char level, const char* tag, const char* msg) {
     logServer.push(level, tag, msg);
 }
 
+void wifiLogUpdateStatus(uint8_t phase, uint32_t elapsedMs, bool motorsOn, bool motorsLocked) {
+    logServer.updateStatus(phase, elapsedMs, motorsOn, motorsLocked);
+}
+
 void wifiLogUpdatePose(float x, float y, float theta_deg, const char* state,
                        float nav_dist_mm, float nav_delta_deg, char team, bool canClick) {
     logServer.updatePose(x, y, theta_deg, state, nav_dist_mm, nav_delta_deg, team, canClick);
@@ -247,6 +251,14 @@ void LogServer::updatePose(float x, float y, float theta_deg, const char* state,
     _poseNew = true;
 }
 
+void LogServer::updateStatus(uint8_t phase, uint32_t elapsedMs,
+                             bool motorsOn, bool motorsLocked) {
+    _phase        = phase;
+    _elapsedMs    = elapsedMs;
+    _motorsOn     = motorsOn;
+    _motorsLocked = motorsLocked;
+}
+
 // ─── updateLidar ─────────────────────────────────────────────────────────────
 
 void LogServer::updateLidar(const LidarPoint* buf, uint16_t n) {
@@ -357,13 +369,16 @@ void LogServer::_loop() {
         // Pose
         if (_poseNew) {
             _poseNew = false;
-            char buf[160];
+            char buf[240];
             snprintf(buf, sizeof(buf),
                      "{\"type\":\"pose\",\"x\":%.1f,\"y\":%.1f,\"a\":%.1f,"
-                     "\"state\":\"%s\",\"nd\":%.0f,\"na\":%.1f,\"tm\":\"%c\",\"cc\":%d}",
+                     "\"state\":\"%s\",\"nd\":%.0f,\"na\":%.1f,\"tm\":\"%c\",\"cc\":%d,"
+                     "\"ph\":%u,\"el\":%lu,\"mo\":%d,\"ml\":%d}",
                      (double)_px, (double)_py, (double)_ptheta,
                      _pstate, (double)_navDist, (double)_navDelta, (char)_team,
-                     _canClick ? 1 : 0);
+                     _canClick ? 1 : 0,
+                     (unsigned)_phase, (unsigned long)_elapsedMs,
+                     _motorsOn ? 1 : 0, _motorsLocked ? 1 : 0);
             _ws.broadcastTXT(buf);
         }
 
