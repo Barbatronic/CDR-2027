@@ -395,7 +395,7 @@ body {
           </div>
           <div class="mot-row"><span class="mot-lbl">Phase</span>   <span class="mot-val" id="mot-phase">—</span></div>
           <div class="mot-row"><span class="mot-lbl">Dist</span>    <span class="mot-val" id="mot-dist">—</span></div>
-          <div class="mot-row"><span class="mot-lbl">Cap</span>     <span class="mot-val" id="mot-cap">—</span></div>
+          <div class="mot-row"><span class="mot-lbl">V réf</span>   <span class="mot-val" id="mot-cap">—</span></div>
           <div class="mot-row"><span class="mot-lbl">V L/R</span>   <span class="mot-val" id="mot-vlr">—</span></div>
           <div class="mot-row"><span class="mot-lbl">Cible</span>   <span class="mot-val" id="mot-tgt">—</span></div>
         </div>
@@ -433,7 +433,8 @@ body {
           <div id="rec-summary">Aucun mouvement enregistré</div>
           <div class="rec-plot-lbl">VITESSES ROUES (mm/s) —
             <i style="color:#4dabf7">G</i> / <i style="color:#ff922b">D</i> :
-            pointillé = commandée, plein = mesurée</div>
+            pointillé = commandée, plein = mesurée ·
+            <i style="color:#adb5bd">gris = profil</i></div>
           <canvas class="rec-plot" id="rec-speed" height="150"></canvas>
           <div class="rec-plot-lbl">ERREUR DISTANCE (mm) — <i style="color:#69db7c">restant à parcourir</i></div>
           <canvas class="rec-plot" id="rec-errd" height="90"></canvas>
@@ -537,32 +538,40 @@ body {
           <span class="calib-unit">&deg;</span>
         </div>
 
-        <div class="calib-group" style="margin-top:8px;">PID</div>
-        <div class="calib-row">
-          <span class="calib-lbl">KP</span>
-          <input class="calib-inp" type="number" id="c-kp" step="0.05" min="0.1" max="10" onchange="sendCalib('kp',+this.value)">
+        <div class="calib-group" style="margin-top:8px;">Asservissement</div>
+        <div class="calib-row" title="Correction de distance : mm/s ajoutés par mm de retard sur le profil">
+          <span class="calib-lbl">KP distance</span>
+          <input class="calib-inp" type="number" id="c-kpDist" step="0.5" min="0" max="30" onchange="sendCalib('kpDist',+this.value)">
+          <span class="calib-unit">1/s</span>
         </div>
-        <div class="calib-row">
+        <div class="calib-row" title="Correction d'angle : rad/s ajoutés par rad d'écart de cap">
+          <span class="calib-lbl">KP angle</span>
+          <input class="calib-inp" type="number" id="c-kpAng" step="0.5" min="0" max="30" onchange="sendCalib('kpAng',+this.value)">
+          <span class="calib-unit">1/s</span>
+        </div>
+        <div class="calib-row" title="Intégrale sur les deux boucles (0 = désactivée)">
           <span class="calib-lbl">KI</span>
-          <input class="calib-inp" type="number" id="c-ki" step="0.001" min="0" max="0.5" onchange="sendCalib('ki',+this.value)">
-        </div>
-        <div class="calib-row">
-          <span class="calib-lbl">KD</span>
-          <input class="calib-inp" type="number" id="c-kd" step="0.01" min="0" max="2" onchange="sendCalib('kd',+this.value)">
+          <input class="calib-inp" type="number" id="c-ki" step="0.5" min="0" max="20" onchange="sendCalib('ki',+this.value)">
+          <span class="calib-unit">1/s&sup2;</span>
         </div>
         <div class="calib-row">
           <span class="calib-lbl">I max</span>
-          <input class="calib-inp" type="number" id="c-iMax" step="10" min="0" max="500" onchange="sendCalib('iMax',+this.value)">
+          <input class="calib-inp" type="number" id="c-iMax" step="5" min="0" max="200" onchange="sendCalib('iMax',+this.value)">
           <span class="calib-unit">mm/s</span>
         </div>
-        <div class="calib-row">
-          <span class="calib-lbl">Stop</span>
-          <input class="calib-inp" type="number" id="c-stopMm" step="0.5" min="1" max="20" onchange="sendCalib('stopMm',+this.value)">
+        <div class="calib-row" title="Arrivé quand l'erreur reste sous ce seuil">
+          <span class="calib-lbl">Tolérance</span>
+          <input class="calib-inp" type="number" id="c-stopMm" step="0.1" min="0.2" max="10" onchange="sendCalib('stopMm',+this.value)">
           <span class="calib-unit">mm</span>
         </div>
         <div class="calib-row">
+          <span class="calib-lbl">Tolérance</span>
+          <input class="calib-inp" type="number" id="c-stopDeg" step="0.1" min="0.1" max="5" onchange="sendCalib('stopDeg',+this.value)">
+          <span class="calib-unit">&deg;</span>
+        </div>
+        <div class="calib-row" title="Vitesse mini de correction du résidu après le profil">
           <span class="calib-lbl">V min</span>
-          <input class="calib-inp" type="number" id="c-minSpd" step="0.5" min="2" max="50" onchange="sendCalib('minSpd',+this.value)">
+          <input class="calib-inp" type="number" id="c-minSpd" step="0.5" min="4" max="50" onchange="sendCalib('minSpd',+this.value)">
           <span class="calib-unit">mm/s</span>
         </div>
         <div class="calib-row">
@@ -1502,7 +1511,8 @@ function drawRecPlot(id, series, unit) {
 function drawRecPlots() {
   drawRecPlot('rec-speed', [
     {key: 'cmdL', color: '#4dabf7', dash: true}, {key: 'cmdR', color: '#ff922b', dash: true},
-    {key: 'vL',   color: '#4dabf7'},             {key: 'vR',   color: '#ff922b'}]);
+    {key: 'vL',   color: '#4dabf7'},             {key: 'vR',   color: '#ff922b'},
+    {key: 'cap',  color: '#adb5bd', dash: true}]);
   drawRecPlot('rec-errd', [{key: 'errD', color: '#69db7c'}]);
   drawRecPlot('rec-erra', [{key: 'errA', color: '#e599f7'}]);
 }
@@ -1536,7 +1546,7 @@ window.addEventListener('resize', () => { if (rec) drawRecPlots(); });
 function recExportCsv() {
   if (!rec) return;
   const head = 't_ms,etat,phase,x_mm,y_mm,cap_deg,cmd_g_mms,cmd_d_mms,v_g_mms,v_d_mms,' +
-               'err_dist_mm,err_angle_deg,plafond_mms';
+               'reste_dist_mm,reste_angle_deg,v_ref_mms';
   const lines = rec.rows.map(o => [o.t, o.st, o.ph, o.x, o.y, o.th, o.cmdL, o.cmdR,
                                    o.vL, o.vR, o.errD, o.errA, o.cap].join(','));
   const blob = new Blob([head + '\n' + lines.join('\n') + '\n'], {type: 'text/csv'});
@@ -1845,8 +1855,8 @@ function updateCalibUI(d) {
     encWheelDiam:d.encWheelDiam, encWheelRatio:d.encWheelRatio, encWheelbase:d.encWheelbase,
     wheelbase:d.wheelbase, driveWheelDiam:d.driveWheelDiam,
     lidarOffset:d.lidarOffset,
-    kp:d.kp, ki:d.ki, kd:d.kd, iMax:d.iMax,
-    stopMm:d.stopMm, minSpd:d.minSpd,
+    kpDist:d.kpDist, kpAng:d.kpAng, ki:d.ki, iMax:d.iMax,
+    stopMm:d.stopMm, stopDeg:d.stopDeg, minSpd:d.minSpd,
     defaultSpeed:d.defaultSpeed, defaultAccel:d.defaultAccel
   };
   for (const [key, val] of Object.entries(map)) {
