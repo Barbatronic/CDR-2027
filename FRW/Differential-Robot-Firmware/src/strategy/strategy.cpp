@@ -116,21 +116,22 @@ static void approcheLente(Robot &robot, float mm) {
 //
 //  Au contact, l'avant du robot touche la face de la carrière : le centre des
 //  pierres est à (avant + épaisseur/2) devant l'axe des roues.
-void prendreCarriere(Robot &robot, Vec2 carriere, float approachDeg, float offsetMm) {
+bool prendreCarriere(Robot &robot, Vec2 carriere, float approachDeg, float offsetMm) {
     const float contact = ROBOT_FRONT_TO_CENTER_MM + PIERRE_EPAISSEUR_MM / 2;
     Vec2 approche = avancer(carriere, approachDeg + 180.0f, contact + offsetMm);
     Vec2 amont    = avancer(approche, approachDeg + 180.0f, CARRIERE_PRE_APPROCHE_MM);
 
     LOG_I("STRAT", "Prise carriere (%.0f,%.0f) a %.0f deg", (double)carriere.x, (double)carriere.y, (double)approachDeg);
     ouvrirBras();
-    robot.gotoXYenc(amont, approachDeg);            // détection obstacle active
+    if (!robot.gotoXYenc(amont, approachDeg)) return false;   // détection obstacle active
 
     robot.disableObstacle();
-    robot.gotoXYenc(approche, approachDeg);
-    approcheLente(robot, offsetMm);                 // avant contre la carrière
+    if (!robot.gotoXYenc(approche, approachDeg)) { robot.enableObstacle(); return false; }
+    approcheLente(robot, offsetMm);                 // avant contre la carrière (contact : peut ne pas converger)
     prendreBloc();
-    robot.goPID(-CARRIERE_RECUL_MM);
+    bool ok = robot.goPID(-CARRIERE_RECUL_MM);
     robot.enableObstacle();
+    return ok;
 }
 
 // ─── Dépose sur un mur ───────────────────────────────────────────────────────
@@ -169,32 +170,35 @@ bool deposerMur(Robot &robot, Vec2 mur) {
     Vec2 approche = avancer(mur, cap + 180.0f, contact + DEPOSE_APPROCHE_MM);
 
     LOG_I("STRAT", "Depose mur (%.0f,%.0f) cap %.0f deg", (double)mur.x, (double)mur.y, (double)cap);
-    robot.gotoXYenc(approche, cap);
+    if (!robot.gotoXYenc(approche, cap)) return false;
 
     robot.disableObstacle();
     approcheLente(robot, DEPOSE_APPROCHE_MM);       // pierres au-dessus de la zone
     ouvrirBras();                                   // relâche
-    robot.goPID(-DEPOSE_RECUL_MM);
+    bool ok = robot.goPID(-DEPOSE_RECUL_MM);
     robot.enableObstacle();
-    return true;
+    return ok;
 }
 
 // ─── Tir depuis la cour ──────────────────────────────────────────────────────
 // Entrée dans le château par le mur 3 (face au centre), puis salle du trône.
-void tirerDepuisCour(Robot &robot, Team team) {
+bool tirerDepuisCour(Robot &robot, Team team) {
     const bool jaune = (team == Team::YELLOW);
     Vec2  entree = jaune ? avancer(POI::murYellow_3, ANGLE_EAST, 300.0f)
                          : avancer(POI::murBlue_3,   ANGLE_WEST, 300.0f);
     Vec2  poste  = jaune ? POI::startYellow : POI::startBlue;
     float cap    = jaune ? ANGLE_SOUTH : ANGLE_NORTH;   // flanc gauche vers l'adversaire
 
-    robot.gotoXYenc(entree);
-    robot.gotoXYenc(poste, cap);
+    if (!robot.gotoXYenc(entree) || !robot.gotoXYenc(poste, cap)) {
+        LOG_W("STRAT", "Tir annule : poste de tir non atteint");
+        return false;
+    }
 
 #if TIR_ATTENDRE_PHASE_ATTAQUE
     robot.waitMatchTime(MATCH_ENDGAME_MS);              // phase d'attaque : 85 s → fin
 #endif
     launchBalls(TIR_ROUE_G_PCT, TIR_ROUE_D_PCT, TIR_DUREE_MS);
+    return true;
 }
 
 // ─── Self-test matériel ───────────────────────────────────────────────────────
@@ -279,8 +283,8 @@ void runStrategyYellow(Robot &robot) {
     robot.enableObstacle();
     robot.setSpeedPct(50, 50);
 
-    prendreCarriere(robot, POI::carriere_01, ANGLE_NORTH);
-    deposerMur(robot, POI::murYellow_2);
+    if (prendreCarriere(robot, POI::carriere_01, ANGLE_NORTH))
+        deposerMur(robot, POI::murYellow_2);
     tirerDepuisCour(robot, Team::YELLOW);
 }
 
@@ -289,8 +293,8 @@ void runStrategyBlue(Robot &robot) {
     robot.enableObstacle();
     robot.setSpeedPct(50, 50);
 
-    prendreCarriere(robot, POI::carriere_04, ANGLE_NORTH);
-    deposerMur(robot, POI::murBlue_2);
+    if (prendreCarriere(robot, POI::carriere_04, ANGLE_NORTH))
+        deposerMur(robot, POI::murBlue_2);
     tirerDepuisCour(robot, Team::BLUE);
 }
 

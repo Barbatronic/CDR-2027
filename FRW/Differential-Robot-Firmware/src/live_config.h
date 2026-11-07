@@ -24,13 +24,14 @@ struct Calib {
                         / (1.0f + ENC_WHEEL_RATIO) / (ENC_PPR * 4.0f);
     float stepsPerMm  = (float)STEPPER_STEPS_REV / (3.14159265f * DRIVE_WHEEL_DIAM_MM);
 
-    // ── PID ──────────────────────────────────────────────────────────────────
-    float kp           = ENC_P1_KP;
-    float ki           = ENC_P1_KI;
-    float kd           = ENC_P1_KD;
-    float iMax         = ENC_P1_I_MAX;
-    float stopMm       = ENC_P1_STOP_MM;
-    float minSpd       = ENC_P1_MIN_SPD;
+    // ── Asservissement ───────────────────────────────────────────────────────
+    float kpDist       = MOTION_KP_DIST;
+    float kpAng        = MOTION_KP_ANG;
+    float ki           = MOTION_KI;
+    float iMax         = MOTION_I_MAX;
+    float stopMm       = MOTION_STOP_MM;
+    float stopDeg      = MOTION_STOP_DEG;
+    float minSpd       = MOTION_MIN_SPD;
     float defaultSpeed = DEFAULT_SPEED_MMS;
     float defaultAccel = DEFAULT_ACCEL_MMS2;
 

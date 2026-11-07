@@ -47,6 +47,9 @@ public:
     void  setSpeed(float mmS);
     void  setAcceleration(float mmS2);
     void  pushAcceleration();   // applique _accel sur les steppers (après softStop)
+    // Accélération des pas à pas pour la commande en vitesse (MotionController),
+    // sans toucher au réglage _accel de la stratégie
+    void  setStepperAccel(float mmS2);
     float getSpeed()        const { return _speed; }
     float getAcceleration() const { return _accel; }
 

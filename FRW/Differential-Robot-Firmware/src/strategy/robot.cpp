@@ -5,11 +5,9 @@
 #include <math.h>
 
 static constexpr float PI_F = 3.14159265f;
-static constexpr float DEG2RAD = PI_F / 180.0f;
-static constexpr float RAD2DEG = 180.0f / PI_F;
 
-Robot::Robot(StepControl &motion, LD06 &lidar, MotionController &motionCtrl)
-    : _motion(motion), _lidar(lidar), _motionCtrl(motionCtrl) {}
+Robot::Robot(StepControl &motion, MotionController &motionCtrl)
+    : _motion(motion), _motionCtrl(motionCtrl) {}
 
 // ─── Chrono de match ──────────────────────────────────────────────────────────
 
@@ -38,61 +36,8 @@ void Robot::waitMatchTime(uint32_t target_ms) {
 
 // ─── Déplacements ─────────────────────────────────────────────────────────────
 
-void Robot::go(float mm) {
-    if (fabsf(mm) < 0.5f) return;
-
-    float remaining  = mm;
-    float savedSpeed = _motion.getSpeed();
-    float savedAccel = _motion.getAcceleration();
-
-    bool endgameFired = false;
-
-    while (fabsf(remaining) > 0.5f && !endgameFired) {
-        gDisplay.robot_state = RobotState::MOVING;
-        float dir = _motion.getTheta() + (remaining < 0 ? PI_F : 0.0f);
-        float x0  = _motion.getX();
-        float y0  = _motion.getY();
-
-        _motion.setSpeed(savedSpeed);
-        _motion.setAcceleration(savedAccel);
-
-        float sign   = (remaining >= 0) ? 1.0f : -1.0f;
-        bool  obsHit = false;
-
-        _motion.startGo(remaining);
-
-        while (_motion.isMoving()) {
-            vTaskDelay(pdMS_TO_TICKS(OBS_POLL_MS));
-            _motion.syncPose();
-
-            if (isMatchOver())                     { _motion.softStop(OBS_STOP_ACCEL_MMS2); disableMotors(); gDisplay.robot_state = RobotState::DONE; return; }
-            if (!_nearEndMode && isEndgame())      { _motion.softStop(OBS_STOP_ACCEL_MMS2); endgameFired = true; break; }
-            if (_obstacleEn && _obstacleInDir(dir)) { _motion.softStop(OBS_STOP_ACCEL_MMS2); obsHit = true; break; }
-        }
-
-        float dx      = _motion.getX() - x0;
-        float dy      = _motion.getY() - y0;
-        float traveled = sign * sqrtf(dx*dx + dy*dy);
-        remaining     -= traveled;
-
-        _motion.syncPose();
-
-        if (!obsHit) return;
-
-        LOG_W("ROBOT", "Obstacle %.0fmm %+.0fdeg — recul, %.0fmm restants",
-              (double)gDisplay.obs_dist_mm, (double)gDisplay.obs_angle_deg, (double)remaining);
-
-        _motion.setSpeed(savedSpeed);
-        _motion.setAcceleration(savedAccel);
-        _motion.go(-sign * OBS_BACKUP_MM);
-        remaining += OBS_BACKUP_MM;
-
-        gDisplay.robot_state = RobotState::OBSTACLE;
-        _waitObstacleClear(dir);
-    }
-
-    _motion.setSpeed(savedSpeed);
-    _motion.setAcceleration(savedAccel);
+bool Robot::_moveAllowed() const {
+    return !isMatchOver() && (_nearEndMode || !isEndgame());
 }
 
 // ─── Go avec détection de blocage (plaquage bordure) ─────────────────────────
@@ -103,8 +48,9 @@ void Robot::go(float mm) {
 bool Robot::goStall(float mm, uint32_t timeoutMs, uint32_t stallConfirmMs) {
     if (fabsf(mm) < 0.5f) return false;
 
-    // Direction de déplacement (même logique que go() pour l'obstacle)
-    const float moveDir = _motion.getTheta() + ((mm < 0) ? PI_F : 0.0f);
+    // Direction de déplacement, surveillée par la tâche LIDAR
+    const float moveDir = getTheta() + ((mm < 0) ? PI_F : 0.0f);
+    if (_obstacleEn) obstacleWatch(moveDir);
     const float sign    = (mm >= 0) ? 1.0f : -1.0f;
 
     _motion.startGo(mm);
@@ -152,10 +98,10 @@ bool Robot::goStall(float mm, uint32_t timeoutMs, uint32_t stallConfirmMs) {
 
         // Détection obstacle dans le sens du mouvement (adversaire, pas le mur cible)
         // Le mur cible est à <LIDAR_BODY_DIST_MM quand plaqué → jamais déclenché
-        if (_obstacleEn && _obstacleInDir(moveDir)) {
+        if (_obstacleEn && obstacleDetected()) {
             _motion.softStop(OBS_STOP_ACCEL_MMS2);
             gDisplay.robot_state = RobotState::OBSTACLE;
-            _waitObstacleClear(moveDir);
+            _waitObstacleClear();
             float remaining = fabsf(mm) - traveled;
             if (remaining > 0.5f) _motion.startGo(sign * remaining);
             prevL = _encLeft  ? _encLeft->getCount()  : prevL;
@@ -176,6 +122,7 @@ bool Robot::goStall(float mm, uint32_t timeoutMs, uint32_t stallConfirmMs) {
                 _motion.syncPose();
                 LOG_I("STALL", "Contact : progression G %.1f D %.1f mm / %d ms",
                       (double)progL, (double)progR, nWin * OBS_POLL_MS);
+                obstacleUnwatch();
                 return true;
             }
         }
@@ -190,12 +137,18 @@ bool Robot::goStall(float mm, uint32_t timeoutMs, uint32_t stallConfirmMs) {
             _motion.syncPose();
             LOG_W("STALL", "Pas de contact (timeout) : progression G %.1f D %.1f mm, seuil %.1f",
                   (double)progL, (double)progR, (double)progMin);
+            obstacleUnwatch();
             return false;
         }
 
-        if (isMatchOver()) { _motion.stop(); disableMotors(); gDisplay.robot_state = RobotState::DONE; return false; }
+        if (isMatchOver()) {
+            _motion.stop(); disableMotors(); obstacleUnwatch();
+            gDisplay.robot_state = RobotState::DONE;
+            return false;
+        }
     }
 
+    obstacleUnwatch();
     _motion.syncPose();
     LOG_W("STALL", "Pas de contact (course finie) : progression G %.1f D %.1f mm, seuil %.1f",
           (double)progL, (double)progR, (double)progMin);
@@ -222,9 +175,10 @@ bool Robot::waitArrived(float blendMm) {
             return false;
         }
         if (_motionCtrl.getUserSeq() != expected) return false;     // préempté
-        if (_motionCtrl.getDoneSeq() == expected) return true;      // terminé
+        if (_motionCtrl.getDoneSeq() == expected)                   // terminé
+            return _motionCtrl.lastArrivedOk();
         if (blendMm > 0.0f && _motionCtrl.getDistMm() < blendMm) return true;
-        vTaskDelay(pdMS_TO_TICKS(10));
+        vTaskDelay(pdMS_TO_TICKS(5));
     }
 }
 
@@ -245,104 +199,49 @@ void Robot::setTarget(float x_mm, float y_mm, float arrival_deg, bool backward) 
     _motionCtrl.setTarget(t);
 }
 
-// ─── Translation asservie encodeurs ──────────────────────────────────────────
+// ─── Ligne droite relative ───────────────────────────────────────────────────
 
-void Robot::goPID(float mm) {
-    if (fabsf(mm) < 0.5f) return;
-    if (isMatchOver() || (!_nearEndMode && isEndgame())) return;
-    gDisplay.robot_state = RobotState::MOVING;
+bool Robot::goPID(float mm) {
+    if (fabsf(mm) < 0.5f) return true;
+    if (!_moveAllowed()) return false;
 
     // Cible XY = pose courante + (mm) dans la direction theta
-    float curX = gDisplay.enc_pose_x_mm;
-    float curY = gDisplay.enc_pose_y_mm;
-    float curT = gDisplay.enc_pose_theta_rad;
-    float sign = (mm >= 0) ? 1.0f : -1.0f;
-    float d    = fabsf(mm);
-    float tx   = curX + sign * d * cosf(curT);
-    float ty   = curY - sign * d * sinf(curT);   // Y+ vers le bas
+    const float curT = getTheta();
+    const float tx   = getX() + mm * cosf(curT);
+    const float ty   = getY() - mm * sinf(curT);   // Y+ vers le bas
 
     setTarget(tx, ty, NAN, mm < 0);
-    waitArrived(0);
-
-    gDisplay.nav_dist_mm = 0;
-    gDisplay.robot_state = RobotState::IDLE;
+    bool ok = waitArrived(0);
+    if (!ok) LOG_W("ROBOT", "goPID %.0f mm : non abouti", (double)mm);
+    return ok;
 }
 
-// ─── Rotation asservie encodeurs ─────────────────────────────────────────────
+// ─── Rotation relative ───────────────────────────────────────────────────────
 
-void Robot::turnPID(float deg) {
-    if (fabsf(deg) < 0.5f) return;
-    if (isMatchOver() || (!_nearEndMode && isEndgame())) return;
-    gDisplay.robot_state = RobotState::TURNING;
+bool Robot::turnPID(float deg) {
+    if (fabsf(deg) < 0.1f) return true;
+    if (!_moveAllowed()) return false;
 
-    // Cible : pose courante + delta theta (TRANSLATE skip car dist=0)
-    float curX = gDisplay.enc_pose_x_mm;
-    float curY = gDisplay.enc_pose_y_mm;
-    float curThetaDeg = gDisplay.enc_pose_theta_deg;
-    setTarget(curX, curY, curThetaDeg + deg, false);
-    waitArrived(0);
-
-    gDisplay.nav_dist_mm = 0;
-    gDisplay.robot_state = RobotState::IDLE;
+    // Cible : pose courante + delta theta (pas de translation)
+    setTarget(getX(), getY(), getThetaDeg() + deg, false);
+    bool ok = waitArrived(0);
+    if (!ok) LOG_W("ROBOT", "turnPID %.1f deg : non abouti", (double)deg);
+    return ok;
 }
 
-// ─── Navigation odométrie encodeurs — wrapper ────────────────────────────────
+// ─── Aller à un point ────────────────────────────────────────────────────────
 
-void Robot::gotoXYenc(float tx, float ty) {
-    gotoXYenc(tx, ty, NAN);
+bool Robot::gotoXYenc(float tx, float ty) {
+    return gotoXYenc(tx, ty, NAN);
 }
 
-void Robot::gotoXYenc(float tx, float ty, float arrival_deg, bool backward) {
-    if (isMatchOver() || (!_nearEndMode && isEndgame())) return;
+bool Robot::gotoXYenc(float tx, float ty, float arrival_deg, bool backward) {
+    if (!_moveAllowed()) return false;
     gDisplay.robot_state = RobotState::GOTO;
     setTarget(tx, ty, arrival_deg, backward);
-    waitArrived(0);
-    gDisplay.nav_dist_mm = 0;
-    gDisplay.robot_state = RobotState::IDLE;
-}
-
-void Robot::turn(float deg) {
-    if (fabsf(deg) < 0.5f) return;
-    if (isMatchOver() || (!_nearEndMode && isEndgame())) return;
-    gDisplay.robot_state = RobotState::TURNING;
-    _motion.turn(deg);
-    gDisplay.robot_state = RobotState::IDLE;
-}
-
-void Robot::gotoXY(float tx, float ty) {
-    gotoXY(tx, ty, NAN);
-}
-
-void Robot::gotoXY(float tx, float ty, float arrival_deg) {
-    gDisplay.robot_state = RobotState::GOTO;
-    float dx = tx - _motion.getX();
-    float dy = ty - _motion.getY();
-    float dist = sqrtf(dx * dx + dy * dy);
-
-    float target_angle = atan2f(-dy, dx);
-    float delta        = _normAngle(target_angle - _motion.getTheta());
-    gDisplay.nav_delta_deg = delta * RAD2DEG;
-    gDisplay.nav_dist_mm   = dist;
-
-    if (dist < 1.0f) goto arrival;
-
-    {
-        // 1. Tourne vers la cible
-        turn(delta * RAD2DEG);
-
-        // 2. Avance jusqu'à la cible
-        go(dist);
-    }
-
-arrival:
-    // 3. Rotation vers l'angle d'arrivée (optionnel)
-    if (!isnanf(arrival_deg)) {
-        float target_rad = arrival_deg * DEG2RAD;
-        float delta = _normAngle(target_rad - _motion.getTheta());
-        if (fabsf(delta) > 0.01f)
-            turn(delta * RAD2DEG);
-    }
-    gDisplay.nav_dist_mm = 0;   // efface l'affichage nav
+    bool ok = waitArrived(0);
+    if (!ok) LOG_W("ROBOT", "gotoXY (%.0f, %.0f) : non abouti", (double)tx, (double)ty);
+    return ok;
 }
 
 // ─── Pose ─────────────────────────────────────────────────────────────────────
@@ -375,123 +274,19 @@ void Robot::resetSpeed() {
     _motion.setAcceleration(gCalib.defaultAccel);
 }
 
-// ─── Obstacle ─────────────────────────────────────────────────────────────────
+// ─── Obstacle (goStall) ───────────────────────────────────────────────────────
 
-bool Robot::_obstacleInDir(float dir_rad) {
-    switch (_detectMode) {
-        case DetectMode::WALL_FILTERED: return _obstacleWallFiltered(dir_rad);
-        default:                        return _obstacleSimple(dir_rad);
-    }
-}
-
-// Détection simple : rectangle devant/derrière, pas de filtre murs.
-bool Robot::_obstacleSimple(float dir_rad) {
-    uint16_t n = _lidar.getScan(_scanBuf, LD06_SCAN_BUF_SIZE);
-    if (n == 0) return false;
-
-    float rTheta = _motion.getTheta();
-    float minFwd = OBS_DETECT_DIST_MM;
-    float minAngle = 0;
-    bool  found  = false;
-
-    for (uint16_t i = 0; i < n; i++) {
-        if (_scanBuf[i].distance_mm == 0) continue;
-        if (_scanBuf[i].confidence < OBS_CONFIDENCE_MIN) continue;
-        float d = (float)_scanBuf[i].distance_mm;
-        if (d < LIDAR_BODY_DIST_MM) continue;
-
-        // Zones aveugles (poteaux structurels)
-        float rDeg = fmodf(270.0f - _scanBuf[i].angle_deg + gCalib.lidarOffsetDeg + 360.0f, 360.0f);
-        if ((rDeg >= LIDAR_BLIND_L_START && rDeg <= LIDAR_BLIND_L_END) ||
-            (rDeg >= LIDAR_BLIND_R_START && rDeg <= LIDAR_BLIND_R_END)) continue;
-
-        float lidarAngle = (270.0f - _scanBuf[i].angle_deg + gCalib.lidarOffsetDeg) * DEG2RAD;
-        float px = d * cosf(lidarAngle);
-        float py = d * sinf(lidarAngle);
-
-        float delta = dir_rad - rTheta;
-        float fwd   =  px * cosf(delta) + py * sinf(delta);
-        float lat   = -px * sinf(delta) + py * cosf(delta);
-
-        if (fwd > OBS_MIN_DIST_MM && fwd < OBS_DETECT_DIST_MM &&
-            fabsf(lat) < OBS_WIDTH_MM * 0.5f) {
-            if (fwd < minFwd) {
-                minFwd   = fwd;
-                minAngle = atan2f(py, px) * RAD2DEG;
-            }
-            found = true;
-        }
-    }
-
-    if (found) {
-        gDisplay.obs_dist_mm   = minFwd;
-        gDisplay.obs_angle_deg = minAngle;
-    }
-    return found;
-}
-
-// Détection avec filtre murs : ignore les points identifiés comme bordures.
-// Requiert une pose robot correcte (après calage bordure).
-bool Robot::_obstacleWallFiltered(float dir_rad) {
-    uint16_t n = _lidar.getScan(_scanBuf, LD06_SCAN_BUF_SIZE);
-    if (n == 0) return false;
-
-    float rTheta = _motion.getTheta();
-
-    for (uint16_t i = 0; i < n; i++) {
-        if (_scanBuf[i].distance_mm == 0) continue;
-        if (_scanBuf[i].confidence < OBS_CONFIDENCE_MIN) continue;
-        float d = (float)_scanBuf[i].distance_mm;
-        if (d < LIDAR_BODY_DIST_MM) continue;
-
-        // Zones aveugles (poteaux structurels)
-        float rDeg = fmodf(270.0f - _scanBuf[i].angle_deg + gCalib.lidarOffsetDeg + 360.0f, 360.0f);
-        if ((rDeg >= LIDAR_BLIND_L_START && rDeg <= LIDAR_BLIND_L_END) ||
-            (rDeg >= LIDAR_BLIND_R_START && rDeg <= LIDAR_BLIND_R_END)) continue;
-
-        float wx, wy;
-        _lidarToWorld(_scanBuf[i].angle_deg, d, wx, wy);
-        if (wx < TABLE_MARGIN_MM || wx > gTable.w() - TABLE_MARGIN_MM) continue;
-        if (wy < TABLE_MARGIN_MM || wy > gTable.h() - TABLE_MARGIN_MM) continue;
-
-        float lidarAngle = (270.0f - _scanBuf[i].angle_deg + gCalib.lidarOffsetDeg) * DEG2RAD;
-        float px = d * cosf(lidarAngle);
-        float py = d * sinf(lidarAngle);
-
-        float delta = dir_rad - rTheta;
-        float fwd   =  px * cosf(delta) + py * sinf(delta);
-        float lat   = -px * sinf(delta) + py * cosf(delta);
-
-        if (fwd > OBS_MIN_DIST_MM && fwd < OBS_DETECT_DIST_MM &&
-            fabsf(lat) < OBS_WIDTH_MM * 0.5f) {
-            return true;
-        }
-    }
-    return false;
-}
-
-void Robot::_lidarToWorld(float angle_deg, float dist_mm,
-                          float &wx, float &wy) const {
-    float a   = (270.0f - angle_deg + gCalib.lidarOffsetDeg) * DEG2RAD + _motion.getTheta();
-    wx = _motion.getX() + dist_mm * cosf(a);
-    wy = _motion.getY() - dist_mm * sinf(a);   // Y+ vers le bas → sin inversé
-}
-
-void Robot::_waitObstacleClear(float dir_rad) {
+// Attend que la direction surveillée se dégage. false = timeout.
+bool Robot::_waitObstacleClear() {
     vTaskDelay(pdMS_TO_TICKS(500));   // attente minimale avant de re-sonder
     uint32_t start = millis();
-    while (_obstacleInDir(dir_rad)) {
+    while (obstacleDetected()) {
         if (millis() - start > OBS_WAIT_MS) {
             LOG_W("ROBOT", "Timeout obstacle — reprise quand meme");
-            return;
+            return false;
         }
         vTaskDelay(pdMS_TO_TICKS(100));
     }
     LOG_I("ROBOT", "Obstacle degage — reprise");
-}
-
-float Robot::_normAngle(float rad) {
-    while (rad >  PI_F) rad -= 2.0f * PI_F;
-    while (rad < -PI_F) rad += 2.0f * PI_F;
-    return rad;
+    return true;
 }

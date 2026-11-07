@@ -156,31 +156,49 @@
 #define OBS_STOP_ACCEL_MMS2 4000.0f   // décélération d'urgence (freinage agressif)
 #define LIDAR_LED_DIST_MM   OBS_DETECT_DIST_MM  // seuil LEDs = seuil détection robot
 
-// ─── ASSERVISSEMENT EN POSITION — double PID indépendant (roue D / roue G) ────
+// ─── ASSERVISSEMENT — profil + boucles distance et angle (lot 3) ────────────
 //
-//  Chaque roue a son propre PID : consigne_position → erreur → PID → vitesse moteur.
-//  Les deux boucles sont indépendantes : elles se synchronisent naturellement
-//  (la roue en retard reçoit une consigne de vitesse plus élevée).
+//  Chaque mouvement suit un profil trapézoïdal calculé dans le temps : à
+//  chaque cycle, il donne la position et la vitesse attendues (ref).
 //
-//  RÉGLAGE — procédure recommandée :
-//    1. KI=0, KD=0. Augmenter KP jusqu'à décelération nette sans dépassement.
-//       Valeur de départ : KP = savedAccel / savedSpeed (≈ 0.5 avec les défauts).
-//    2. Si le robot s'arrête systématiquement avant la cible (friction statique) :
-//       augmenter KI prudemment. Surveiller I_MAX.
-//    3. Si oscillations en fin de course : augmenter KD.
+//      v = v_ref + KP_DIST · (d_ref − d_mes) + KI · ∫(d_ref − d_mes)
+//      ω = ω_ref + KP_ANG  · (θ_ref − θ_mes) + KI · ∫(θ_ref − θ_mes)
+//      roue G = v − ω · entraxe/2      roue D = v + ω · entraxe/2
 //
-//  Symptômes → actions :
-//    Dépassement          → baisser KP
-//    Undershoot / calage  → augmenter KI ou MIN_SPD
-//    Oscillations finales → augmenter KD
+//  (entraxe des roues MOTRICES ; d et θ mesurés par les roues codeuses).
+//  Les moteurs pas à pas exécutent presque exactement v_ref et ω_ref : les
+//  boucles ne corrigent que le petit écart restant (pas sautés, glissement).
 //
-#define ENC_P1_KP         1.8f    // proportionnel : mm/s par mm d'erreur position
-#define ENC_P1_KI         0.01f    // intégral      : mm/s par (mm · s) — anti-trainage
-#define ENC_P1_KD         0.2f   // dérivé        : amortissement en fin de course
-#define ENC_P1_I_MAX     100.0f    // anti-windup   : saturation intégrale (mm/s)
-#define ENC_P1_STOP_MM    5.0f    // seuil d'arrêt translation : erreur avg < valeur → stop (mm)
-#define ENC_P1_STOP_DEG   0.5f    // seuil d'arrêt rotation    : erreur avg < valeur → stop (°)
-#define ENC_P1_MIN_SPD    8.0f    // vitesse min   : en dessous → stopMove() (mm/s)
+//  RÉGLAGE : regarder l'onglet MOTION (« Dernier mouvement »).
+//    Erreur qui grandit pendant le mouvement → augmenter KP
+//    Oscillation autour de la consigne       → baisser KP
+//    Résidu constant en fin de mouvement      → un peu de KI, ou V min
+//
+#define MOTION_PERIOD_MS     10       // cadence de la boucle (100 Hz)
+#define MOTION_KP_DIST       6.0f     // 1/s : mm/s par mm d'erreur de distance
+#define MOTION_KP_ANG        8.0f     // 1/s : rad/s par rad d'erreur d'angle
+#define MOTION_KI            0.0f     // 1/s² : intégrale, sur les deux boucles
+#define MOTION_I_MAX        50.0f     // mm/s : saturation de l'intégrale (anti-windup)
+#define MOTION_STOP_MM       1.0f     // tolérance d'arrivée en distance (mm)
+#define MOTION_STOP_DEG      0.5f     // tolérance d'arrivée en angle (°)
+#define MOTION_MIN_SPD       8.0f     // mm/s : vitesse mini de correction du résidu
+#define MOTION_SETTLE_CYCLES 3        // cycles consécutifs dans la tolérance → arrivé
+#define MOTION_SETTLE_MS   1500U      // après la fin du profil : abandon si non convergé
+#define MOTION_HEADING_FREEZE_MM 50.0f // en ligne droite : cap figé sous cette distance restante
+#define MOTION_ACT_LAG_MS      35     // retard commande → mouvement des pas à pas (file de la
+                                       // bibliothèque + mécanique, mesuré sur table) : la vitesse
+                                       // envoyée est celle du profil à t + ce retard
+#define STEP_MIN_SPEED_MMS     4.0f   // sous cette vitesse : arrêt. Une vitesse plus faible met en
+                                       // file un pas très long (1 mm/s → 113 ms) qui retarde
+                                       // d'autant la commande suivante
+#define MOTION_CORR_MAX_MMS    150.0f // correction maxi par roue autour de la vitesse du profil
+#define MOTION_STEPPER_ACCEL_K   1.2f  // accélération des pas à pas = K × celle du profil,
+#define MOTION_STEPPER_ACCEL_MIN 1000.0f // … au moins ceci (mm/s²) : à vitesse lente, les
+                                         // corrections de cap doivent rester applicables
+#define MOTION_MAX_ERR_MM      50.0f   // garde-fou : écart à la référence au-delà → arrêt
+#define MOTION_MAX_ERR_DEG     20.0f   //   (dérive du centre en rotation : 0,6 × MAX_ERR_MM)
+#define MOTION_MAX_HEADING_DEG 45.0f   //   en ligne droite (> MOTION_BLEND_MAX_DEG)
+#define MOTION_BLEND_MAX_DEG     30.0f // nouvelle cible en roulant : enchaînée sans arrêt si l'écart de cap est sous ce seuil
 
 // ─── DÉTECTION STALL ─────────────────────────────────────────────────────────
 // Durée minimale de non-mouvement encodeur pour valider un stall.

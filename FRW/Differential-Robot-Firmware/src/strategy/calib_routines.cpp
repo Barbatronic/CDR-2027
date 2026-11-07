@@ -73,6 +73,10 @@ static void sendFail(const char *id) {
     sendResult(buf);
 }
 
+// Déplacement asservi : au premier échec (non convergé, arrêt), la routine
+// s'interrompt au lieu d'enchaîner sur une pose fausse
+#define MOVE_OR_FAIL(call, id) do { if (!(call) || sAbort) { sendFail(id); return; } } while (0)
+
 // ─── Ligne droite : diamètre moyen ───────────────────────────────────────────
 
 static void runLine(Robot &robot, QuadEncoder &L, QuadEncoder &R, float mm) {
@@ -81,7 +85,7 @@ static void runLine(Robot &robot, QuadEncoder &L, QuadEncoder &R, float mm) {
     robot.setPosition(ROBOT_BACK_TO_CENTER_MM, gTable.h() * 0.5f, ANGLE_EAST);
 
     Snap a = snap(L, R);
-    robot.goPID(mm);
+    MOVE_OR_FAIL(robot.goPID(mm), "line");
     vTaskDelay(pdMS_TO_TICKS(500));
     if (sAbort) { sendFail("line"); return; }
     Snap b = snap(L, R);
@@ -111,8 +115,7 @@ static void runTurns(Robot &robot, QuadEncoder &L, QuadEncoder &R, float turns) 
     robot.setPosition(ROBOT_BACK_TO_CENTER_MM, gTable.h() * 0.5f, ANGLE_EAST);
     Snap a = snap(L, R);
 
-    robot.goPID(200.0f);
-    if (sAbort) { sendFail("turns"); return; }
+    MOVE_OR_FAIL(robot.goPID(200.0f), "turns");
 
     Snap t0 = snap(L, R);
     robot.turnOpen(360.0f * n * dir, CAL_TURN_SPEED, CAL_TURN_ACCEL);
@@ -159,34 +162,33 @@ static void runSquare(Robot &robot, QuadEncoder &L, QuadEncoder &R, float side, 
     robot.setPosition(0, 0, ANGLE_EAST);
     if (!backToWall(robot, CALAGE_STALL_MM)) { sendFail(id); return; }
     robot.setPosition(ROBOT_BACK_TO_CENTER_MM, 0, ANGLE_EAST);
-    robot.goPID(CALAGE_X_MM - ROBOT_BACK_TO_CENTER_MM);
-    robot.turnPID(-90.0f);
+    MOVE_OR_FAIL(robot.goPID(CALAGE_X_MM - ROBOT_BACK_TO_CENTER_MM), id);
+    MOVE_OR_FAIL(robot.turnPID(-90.0f), id);
     if (!backToWall(robot, CALAGE_STALL_MM)) { sendFail(id); return; }
     robot.setPosition(robot.getX(), ROBOT_BACK_TO_CENTER_MM, ANGLE_SOUTH);
-    robot.goPID(CALAGE_Y_MM - ROBOT_BACK_TO_CENTER_MM);
+    MOVE_OR_FAIL(robot.goPID(CALAGE_Y_MM - ROBOT_BACK_TO_CENTER_MM), id);
 
     // Contact de départ sur la bordure ouest, à la hauteur du coin de départ
     // (haut-gauche en horaire, bas-gauche en anti-horaire) : cap réel = Est
     const float ys = cw ? y0 : y1;
-    robot.gotoXYenc(CALAGE_X_MM, ys, ANGLE_EAST);
+    MOVE_OR_FAIL(robot.gotoXYenc(CALAGE_X_MM, ys, ANGLE_EAST), id);
     if (!backToWall(robot, CALAGE_X_MM - ROBOT_BACK_TO_CENTER_MM + 80.0f)) { sendFail(id); return; }
     robot.setPosition(ROBOT_BACK_TO_CENTER_MM, gDisplay.enc_pose_y_mm, ANGLE_EAST);
     Snap a = snap(L, R);
-    robot.gotoXYenc(x0, ys, ANGLE_EAST);
+    MOVE_OR_FAIL(robot.gotoXYenc(x0, ys, ANGLE_EAST), id);
 
     // Carré, départ et arrivée face à l'Est
     if (cw) {
-        robot.gotoXYenc(x1, y0, ANGLE_SOUTH);
-        robot.gotoXYenc(x1, y1, ANGLE_WEST);
-        robot.gotoXYenc(x0, y1, ANGLE_NORTH);
-        robot.gotoXYenc(x0, y0, ANGLE_EAST);
+        MOVE_OR_FAIL(robot.gotoXYenc(x1, y0, ANGLE_SOUTH), id);
+        MOVE_OR_FAIL(robot.gotoXYenc(x1, y1, ANGLE_WEST), id);
+        MOVE_OR_FAIL(robot.gotoXYenc(x0, y1, ANGLE_NORTH), id);
+        MOVE_OR_FAIL(robot.gotoXYenc(x0, y0, ANGLE_EAST), id);
     } else {
-        robot.gotoXYenc(x1, y1, ANGLE_NORTH);
-        robot.gotoXYenc(x1, y0, ANGLE_WEST);
-        robot.gotoXYenc(x0, y0, ANGLE_SOUTH);
-        robot.gotoXYenc(x0, y1, ANGLE_EAST);
+        MOVE_OR_FAIL(robot.gotoXYenc(x1, y1, ANGLE_NORTH), id);
+        MOVE_OR_FAIL(robot.gotoXYenc(x1, y0, ANGLE_WEST), id);
+        MOVE_OR_FAIL(robot.gotoXYenc(x0, y0, ANGLE_SOUTH), id);
+        MOVE_OR_FAIL(robot.gotoXYenc(x0, y1, ANGLE_EAST), id);
     }
-    if (sAbort) { sendFail(id); return; }
 
     // Retour à la bordure ouest : cap réel = Est
     if (!backToWall(robot, x0 - ROBOT_BACK_TO_CENTER_MM + 80.0f)) { sendFail(id); return; }

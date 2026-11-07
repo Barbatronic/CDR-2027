@@ -24,7 +24,7 @@ static LD06         lidar(Serial1, LIDAR_RX_PIN, LIDAR_PWM_PIN);
 static StepControl  motion;
 static QuadEncoder  encRight;
 static QuadEncoder  encLeft;
-static Robot        robot(motion, lidar, gMotionCtrl);
+static Robot        robot(motion, gMotionCtrl);
 
 static LidarPoint   scanBuf[LD06_SCAN_BUF_SIZE];
 
@@ -216,7 +216,7 @@ static void taskStrategy(void *) {
 
     // taskMotionControl : 50 Hz sur Core 1, prio 3 — démarre une fois que les
     // encodeurs sont prêts (la tâche les lit dès le premier tick).
-    gMotionCtrl.begin(&motion, &encLeft, &encRight, &lidar);
+    gMotionCtrl.begin(&motion, &encLeft, &encRight);
 
 #if BOOT_SELFTEST_ENABLED
     runSelfTest();
@@ -459,7 +459,7 @@ void loop() {
         wifiLogUpdateMotion((uint8_t)gMotionCtrl.getState(),
                             (uint8_t)gMotionCtrl.getPhase(),
                             gMotionCtrl.getDistMm(),
-                            gMotionCtrl.getSpeedCap(),
+                            gMotionCtrl.getRefSpeed(),
                             gMotionCtrl.getCmdL(),
                             gMotionCtrl.getCmdR(),
                             gMotionCtrl.getTargetX(),

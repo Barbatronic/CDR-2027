@@ -30,17 +30,20 @@ float angleVers(Vec2 from, Vec2 to);
 // approachDeg : orientation du robot face à la carrière (ANGLE_NORTH pour les
 // carrières du fond, ANGLE_SOUTH côté public, EAST/WEST pour celles du centre).
 // offsetMm    : distance avant du robot ↔ face de la carrière avant d'avancer.
-void prendreCarriere(Robot &robot, Vec2 carriere, float approachDeg,
+// Retourne false si un déplacement n'a pas abouti (obstacle, fin de match).
+bool prendreCarriere(Robot &robot, Vec2 carriere, float approachDeg,
                      float offsetMm = CARRIERE_APPROCHE_MM);
 
 // Dépose des pierres tenues sur une zone de mur (POI::murYellow_x / murBlue_x).
 // L'orientation est déduite du mur ; le robot approche depuis l'extérieur du
-// château, face à la cour. Retourne false si le POI n'est pas un mur connu.
+// château, face à la cour. Retourne false si le POI n'est pas un mur connu
+// ou si un déplacement n'a pas abouti.
 bool deposerMur(Robot &robot, Vec2 mur);
 
 // Retour dans la salle du trône par l'entrée du château (mur 3), orienté pour
-// tirer par le flanc gauche vers l'adversaire, puis tir.
-void tirerDepuisCour(Robot &robot, Team team);
+// tirer par le flanc gauche vers l'adversaire, puis tir (annulé, false, si
+// le poste n'est pas atteint).
+bool tirerDepuisCour(Robot &robot, Team team);
 
 // ─── Stratégie de match ───────────────────────────────────────────────────────
 void runStrategyYellow(Robot &robot);

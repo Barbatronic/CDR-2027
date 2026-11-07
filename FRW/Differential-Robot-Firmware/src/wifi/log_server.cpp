@@ -551,15 +551,15 @@ void LogServer::_buildCalibJson() {
         "{\"type\":\"calib_state\",\"saved\":%d,\"encWheelRatio\":%.5f,"
         "\"encWheelDiam\":%.4f,\"encWheelbase\":%.3f,\"wheelbase\":%.3f,"
         "\"driveWheelDiam\":%.3f,\"lidarOffset\":%.2f,"
-        "\"kp\":%.4f,\"ki\":%.5f,\"kd\":%.4f,\"iMax\":%.1f,"
-        "\"stopMm\":%.2f,\"minSpd\":%.2f,"
+        "\"kpDist\":%.3f,\"kpAng\":%.3f,\"ki\":%.4f,\"iMax\":%.1f,"
+        "\"stopMm\":%.2f,\"stopDeg\":%.2f,\"minSpd\":%.2f,"
         "\"defaultSpeed\":%.0f,\"defaultAccel\":%.0f}",
         calibIsSaved() ? 1 : 0, (double)gCalib.encWheelRatio,
         (double)gCalib.encWheelDiamMm,   (double)gCalib.encWheelbase,
         (double)gCalib.wheelbase,         (double)gCalib.driveWheelDiamMm,
         (double)gCalib.lidarOffsetDeg,
-        (double)gCalib.kp,  (double)gCalib.ki,  (double)gCalib.kd, (double)gCalib.iMax,
-        (double)gCalib.stopMm,  (double)gCalib.minSpd,
+        (double)gCalib.kpDist, (double)gCalib.kpAng, (double)gCalib.ki, (double)gCalib.iMax,
+        (double)gCalib.stopMm, (double)gCalib.stopDeg, (double)gCalib.minSpd,
         (double)gCalib.defaultSpeed, (double)gCalib.defaultAccel);
 }
 
@@ -582,10 +582,11 @@ void LogServer::_handleCalibMsg(const char* p) {
         {"encWheelDiam",   45.0f,   55.0f}, {"encWheelbase", 170.0f,  210.0f},
         {"encWheelRatio",   0.97f,   1.03f},
         {"wheelbase",     130.0f,  160.0f}, {"driveWheelDiam", 52.0f,  62.0f},
-        {"lidarOffset",   -15.0f,   15.0f}, {"kp",             0.1f,   10.0f},
-        {"ki",              0.0f,    0.5f}, {"kd",             0.0f,    2.0f},
-        {"iMax",            0.0f,  500.0f}, {"stopMm",         1.0f,   20.0f},
-        {"minSpd",          2.0f,   50.0f}, {"defaultSpeed", 200.0f, 5000.0f},
+        {"lidarOffset",   -15.0f,   15.0f}, {"kpDist",         0.0f,   30.0f},
+        {"kpAng",           0.0f,   30.0f}, {"ki",             0.0f,   20.0f},
+        {"iMax",            0.0f,  200.0f}, {"stopMm",         0.2f,   10.0f},
+        {"stopDeg",         0.1f,    5.0f},
+        {"minSpd",          4.0f,   50.0f}, {"defaultSpeed", 200.0f, 5000.0f},
         {"defaultAccel",  200.0f, 8000.0f},
     };
     const Range* r = nullptr;
@@ -612,9 +613,10 @@ void LogServer::_handleCalibMsg(const char* p) {
     else if   (strcmp(key, "wheelbase")     == 0) { gCalib.wheelbase        = val; }
     else if   (strcmp(key, "driveWheelDiam") == 0) { gCalib.driveWheelDiamMm = val; gCalib.recompute(); }
     else if   (strcmp(key, "lidarOffset")   == 0) { gCalib.lidarOffsetDeg   = val; }
-    else if   (strcmp(key, "kp")            == 0) { gCalib.kp               = val; }
+    else if   (strcmp(key, "kpDist")        == 0) { gCalib.kpDist           = val; }
+    else if   (strcmp(key, "kpAng")         == 0) { gCalib.kpAng            = val; }
     else if   (strcmp(key, "ki")            == 0) { gCalib.ki               = val; }
-    else if   (strcmp(key, "kd")            == 0) { gCalib.kd               = val; }
+    else if   (strcmp(key, "stopDeg")       == 0) { gCalib.stopDeg          = val; }
     else if   (strcmp(key, "iMax")          == 0) { gCalib.iMax             = val; }
     else if   (strcmp(key, "stopMm")        == 0) { gCalib.stopMm           = val; }
     else if   (strcmp(key, "minSpd")        == 0) { gCalib.minSpd           = val; }

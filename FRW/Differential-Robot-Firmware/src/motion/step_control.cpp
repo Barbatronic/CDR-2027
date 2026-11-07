@@ -94,7 +94,7 @@ void StepControl::setMotorSpeeds(float leftMmS, float rightMmS) {
 
 void StepControl::setMotorVelocities(float leftMmS, float rightMmS) {
     auto apply = [](FastAccelStepper *s, float mmS) {
-        if (fabsf(mmS) < 0.5f) { s->stopMove(); return; }
+        if (fabsf(mmS) < STEP_MIN_SPEED_MMS) { s->stopMove(); return; }
         s->setSpeedInHz((uint32_t)(fabsf(mmS) * gCalib.stepsPerMm));
         if (mmS > 0) s->runForward();
         else         s->runBackward();
@@ -179,6 +179,12 @@ void StepControl::setSpeed(float mmS)        { _speed = mmS; }
 void StepControl::setAcceleration(float mmS2) { _accel = mmS2; }
 void StepControl::pushAcceleration() {
     uint32_t a = (uint32_t)(_accel * gCalib.stepsPerMm);
+    _stepL->setAcceleration(a);
+    _stepR->setAcceleration(a);
+}
+
+void StepControl::setStepperAccel(float mmS2) {
+    uint32_t a = (uint32_t)(fmaxf(mmS2, 10.0f) * gCalib.stepsPerMm);
     _stepL->setAcceleration(a);
     _stepR->setAcceleration(a);
 }
