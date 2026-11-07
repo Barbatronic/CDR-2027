@@ -23,6 +23,8 @@ body {
 .connected    { background: #1e3d1a; color: #6ddb60; border: 1px solid #3d7a35; }
 .disconnected { background: #3d1a1a; color: #db6060; border: 1px solid #7a3535; }
 #uptime { color: #666; font-size: 11px; margin-left: auto; }
+#data-age { font-size: 11px; color: #666; font-family: monospace; }
+#data-age.stale { color: #ff6b6b; font-weight: bold; }
 
 /* ── Barre d'état robot : phase · chrono · moteurs · mouvement ── */
 #status-bar {
@@ -306,6 +308,19 @@ body {
 .log-I   { color: #6ddb60; }
 .log-D   { color: #74c0fc; }
 .log-msg { color: #d0d0d0; }
+
+/* ── Téléphone / écran étroit : une seule colonne, page défilante ── */
+@media (max-width: 900px) {
+  body { height: auto; min-height: 100vh; overflow: auto; }
+  #header { flex-wrap: wrap; gap: 8px; }
+  #content { flex-direction: column; overflow: visible; }
+  #main-col { overflow: visible; padding: 6px; }
+  #field-area { flex: none; }
+  #field-wrap { width: 100%; height: auto; max-height: none; }
+  #field-canvas { touch-action: none; }
+  #side-col { width: 100%; border-left: none; border-top: 1px solid #333; min-height: 80vh; }
+  .act-btn { padding: 8px 10px; }
+}
 </style>
 </head>
 <body>
@@ -313,6 +328,7 @@ body {
 <div id="header">
   <h1><span style="font-weight:900;font-size:18px;color:#ffd43b;letter-spacing:-1px;">K</span> Karibous Debug</h1>
   <span id="ws-status" class="disconnected">&#9679; Déconnecté</span>
+  <span id="data-age" title="Âge de la dernière donnée reçue du robot">—</span>
   <span id="team-badge">— Équipe</span>
   <span id="uptime"></span>
 </div>
@@ -320,7 +336,7 @@ body {
 <div id="status-bar">
   <span class="st-chip st-gray" id="st-phase" title="Phase du match">—</span>
   <span id="st-clock" style="display:none">
-    <b id="st-clock-txt">0 s</b><span style="color:#666">/ 100 s</span>
+    <b id="st-clock-txt">0 s</b><span style="color:#666" id="st-clock-max">/ 100 s</span>
     <span id="st-clock-bar"><span id="st-clock-fill" style="display:block"></span></span>
   </span>
   <span class="st-chip st-gray" id="st-motors" title="Alimentation des moteurs de roues">Moteurs —</span>
@@ -460,37 +476,37 @@ body {
             <div class="servo-row">
               <span class="servo-label">Lanceur</span>
               <input type="range" id="sl-flywheels" min="0" max="100" value="0" disabled
-                     oninput="sendServo('flywheels', this.value)">
+                     oninput="sendServo('flywheels', this.value)" onchange="sendServo('flywheels', this.value, true)">
               <span class="servo-val" id="sv-flywheels">0%</span>
             </div>
             <div class="servo-row">
               <span class="servo-label">Roue G (0)</span>
               <input type="range" id="sl-flywheelLeft" min="0" max="100" value="0" disabled
-                     oninput="sendServo('flywheelLeft', this.value)">
+                     oninput="sendServo('flywheelLeft', this.value)" onchange="sendServo('flywheelLeft', this.value, true)">
               <span class="servo-val" id="sv-flywheelLeft">0%</span>
             </div>
             <div class="servo-row">
               <span class="servo-label">Roue D (1)</span>
               <input type="range" id="sl-flywheelRight" min="0" max="100" value="0" disabled
-                     oninput="sendServo('flywheelRight', this.value)">
+                     oninput="sendServo('flywheelRight', this.value)" onchange="sendServo('flywheelRight', this.value, true)">
               <span class="servo-val" id="sv-flywheelRight">0%</span>
             </div>
             <div class="servo-row">
               <span class="servo-label">Ventilo</span>
               <input type="range" id="sl-feeder" min="0" max="100" value="0" disabled
-                     oninput="sendServo('feeder', this.value)">
+                     oninput="sendServo('feeder', this.value)" onchange="sendServo('feeder', this.value, true)">
               <span class="servo-val" id="sv-feeder">0%</span>
             </div>
             <div class="servo-row">
               <span class="servo-label">Bas G (2)</span>
               <input type="range" id="sl-servoBasG" min="0" max="100" value="50" disabled
-                     oninput="sendServo('servoBasG', this.value)">
+                     oninput="sendServo('servoBasG', this.value)" onchange="sendServo('servoBasG', this.value, true)">
               <span class="servo-val" id="sv-servoBasG">--</span>
             </div>
             <div class="servo-row">
               <span class="servo-label">Bas D (3)</span>
               <input type="range" id="sl-servoBasD" min="0" max="100" value="50" disabled
-                     oninput="sendServo('servoBasD', this.value)">
+                     oninput="sendServo('servoBasD', this.value)" onchange="sendServo('servoBasD', this.value, true)">
               <span class="servo-val" id="sv-servoBasD">--</span>
             </div>
           </div>
@@ -663,17 +679,21 @@ let FIELD_W_MM = 3000, FIELD_H_MM = 2000;
 let CVS_W = 900, CVS_H = 600;
 let SX = CVS_W / FIELD_W_MM, SY = CVS_H / FIELD_H_MM;   // 0.3 px/mm en match
 let essaiMode = false;
-const ESSAI_W_MM = 1000, ESSAI_H_MM = 700;
-// Emprise du robot autour de l'axe des roues (config.h ROBOT_*_TO_CENTER_MM,
-// largeur 232 mm confirmée en novembre 2026)
-const ROBOT_FRONT_MM = 80.9, ROBOT_BACK_MM = 134.82, ROBOT_WIDTH_MM = 232;
+// Valeurs ci-dessous : remplacées à la connexion par le message config du
+// firmware (config.h est la seule source) ; ces défauts ne servent qu'avant.
+let MATCH_W_MM = 3000, MATCH_H_MM = 2000;
+let ESSAI_W_MM = 1000, ESSAI_H_MM = 700;
+// Emprise du robot autour de l'axe des roues
+let ROBOT_FRONT_MM = 80.9, ROBOT_BACK_MM = 134.82, ROBOT_WIDTH_MM = 232;
+let MATCH_S = 100, ENDGAME_S = 85;
 
 // ── Constantes radar ────────────────────────────────────────────────────────
 const RDR_CX = 100, RDR_CY = 100, RDR_R = 90;    // centre et rayon du radar (px)
 const RDR_MAX_MM = 1500;                           // portée affichée (mm)
 const RDR_SCALE  = RDR_R / RDR_MAX_MM;            // px/mm
-// Zone détection obstacle (depuis config.h)
-const OBS_DETECT_MM = 400, OBS_WIDTH_MM = 200;
+// Zone détection obstacle et zones aveugles du LIDAR (message config)
+let OBS_DETECT_MM = 500, OBS_WIDTH_MM = 200;
+let LIDAR_BLIND = [];        // [[début°, fin°], …] repère robot
 
 // ── État ───────────────────────────────────────────────────────────────────
 const canvas = document.getElementById('field-canvas');
@@ -690,8 +710,8 @@ let autoscroll   = true;
 let startTime    = null;
 let pose         = {x:0, y:0, a:0, state:'—', tm:'?', cc:0};
 let motion       = {st:0, ph:0, dist:0, cap:0, vL:0, vR:0, tx:0, ty:0, tt:-9999};
-const MOT_STATE = ['IDLE', 'MOVING', 'HOLD', 'OBSTACLE'];
-const MOT_PHASE = ['NONE', 'ALIGN', 'TRANSLATE', 'FINAL_TURN'];
+let MOT_STATE = ['IDLE', 'MOVING', 'HOLD', 'OBSTACLE'];
+let MOT_PHASE = ['NONE', 'ALIGN', 'TRANSLATE', 'FINAL_TURN'];
 let needRender   = false;   // dirty flag pour renderLogs() (incrémental)
 
 // ── Filtres ────────────────────────────────────────────────────────────────
@@ -711,8 +731,8 @@ function toggleAutoscroll() {
 
 function setTable(essai) {
   essaiMode  = essai;
-  FIELD_W_MM = essai ? ESSAI_W_MM : 3000;
-  FIELD_H_MM = essai ? ESSAI_H_MM : 2000;
+  FIELD_W_MM = essai ? ESSAI_W_MM : MATCH_W_MM;
+  FIELD_H_MM = essai ? ESSAI_H_MM : MATCH_H_MM;
   CVS_W = 900;
   CVS_H = Math.round(CVS_W * FIELD_H_MM / FIELD_W_MM);
   SX = CVS_W / FIELD_W_MM; SY = CVS_H / FIELD_H_MM;
@@ -720,7 +740,7 @@ function setTable(essai) {
   document.getElementById('field-wrap').style.aspectRatio = FIELD_W_MM + '/' + FIELD_H_MM;
   document.getElementById('field-img').style.visibility = essai ? 'hidden' : 'visible';
   const b = document.getElementById('table-btn');
-  b.textContent = essai ? '\u25A6 Table d\'essai 1000\u00D7700' : '\u25A6 Table de match';
+  b.textContent = essai ? '\u25A6 Table d\'essai ' + ESSAI_W_MM + '\u00D7' + ESSAI_H_MM : '\u25A6 Table de match';
   b.classList.toggle('active', essai);
   drawPose();
 }
@@ -852,6 +872,19 @@ function drawRadar(pts) {
   rdrCtx.strokeRect(RDR_CX - dw, RDR_CY - dd, dw * 2, dd);
   rdrCtx.fillRect(RDR_CX - dw, RDR_CY,       dw * 2, dd);   // arrière (bas)
   rdrCtx.strokeRect(RDR_CX - dw, RDR_CY,     dw * 2, dd);
+
+  // Zones aveugles du LIDAR (poteaux) : points ignorés par la détection
+  rdrCtx.fillStyle = 'rgba(120,120,120,0.18)';
+  for (const [a1, a2] of LIDAR_BLIND) {
+    rdrCtx.beginPath();
+    rdrCtx.moveTo(RDR_CX, RDR_CY);
+    for (let a = a1; a <= a2; a += 3) {
+      const r = a * Math.PI / 180;
+      rdrCtx.lineTo(RDR_CX - Math.sin(r) * RDR_R, RDR_CY - Math.cos(r) * RDR_R);
+    }
+    rdrCtx.closePath();
+    rdrCtx.fill();
+  }
 
   // Contour radar
   rdrCtx.strokeStyle = '#333';
@@ -1055,36 +1088,60 @@ function canClickField() {
   return pose.cc === 1;
 }
 
-document.getElementById('field-canvas').addEventListener('mousedown', e => {
-  if (!canClickField())  return;
-  if (e.button !== 0)    return;   // bouton gauche uniquement
-  if (!ws || ws.readyState !== WebSocket.OPEN) return;
-  const rect = e.target.getBoundingClientRect();
-  const x = Math.round((e.clientX - rect.left) / rect.width  * FIELD_W_MM);
-  const y = Math.round((e.clientY - rect.top)  / rect.height * FIELD_H_MM);
-  dragState = {sx:x, sy:y, mx:x, my:y, sxClient:e.clientX, syClient:e.clientY};
-  e.preventDefault();
+// Souris et doigt partagent les trois étapes : appui, glissement, relâchement
+function dragStart(cx, cy) {
+  if (!canClickField()) return false;
+  if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+  const rect = document.getElementById('field-canvas').getBoundingClientRect();
+  const x = Math.round((cx - rect.left) / rect.width  * FIELD_W_MM);
+  const y = Math.round((cy - rect.top)  / rect.height * FIELD_H_MM);
+  dragState = {sx:x, sy:y, mx:x, my:y, sxClient:cx, syClient:cy};
   drawPose();
-});
+  return true;
+}
 
-// Mouse move : utilisé en plus du tooltip pour update le drag preview
-window.addEventListener('mousemove', e => {
+function dragMove(cx, cy) {
   if (!dragState) return;
-  const cvs = document.getElementById('field-canvas');
-  const rect = cvs.getBoundingClientRect();
-  // Clamp sur les bornes du terrain (Y et X) — anglemarche même hors canvas
-  let mx = (e.clientX - rect.left) / rect.width  * FIELD_W_MM;
-  let my = (e.clientY - rect.top)  / rect.height * FIELD_H_MM;
-  dragState.mx = Math.round(mx);
-  dragState.my = Math.round(my);
+  const rect = document.getElementById('field-canvas').getBoundingClientRect();
+  dragState.mx = Math.round((cx - rect.left) / rect.width  * FIELD_W_MM);
+  dragState.my = Math.round((cy - rect.top)  / rect.height * FIELD_H_MM);
   drawPose();
-});
+}
 
+document.getElementById('field-canvas').addEventListener('mousedown', e => {
+  if (e.button !== 0) return;   // bouton gauche uniquement
+  if (dragStart(e.clientX, e.clientY)) e.preventDefault();
+});
+window.addEventListener('mousemove', e => dragMove(e.clientX, e.clientY));
 window.addEventListener('mouseup', e => {
   if (!dragState) return;
   if (e.button !== 0) { dragState = null; drawPose(); return; }
-  const dx = e.clientX - dragState.sxClient;
-  const dy = e.clientY - dragState.syClient;
+  dragEnd(e.clientX, e.clientY);
+});
+
+// Écran tactile : même geste (appui = cible, glisser = cap d'arrivée)
+const fieldCvs = document.getElementById('field-canvas');
+fieldCvs.addEventListener('touchstart', e => {
+  const t = e.touches[0];
+  if (e.touches.length === 1 && dragStart(t.clientX, t.clientY)) e.preventDefault();
+}, {passive: false});
+fieldCvs.addEventListener('touchmove', e => {
+  if (!dragState) return;
+  const t = e.touches[0];
+  dragMove(t.clientX, t.clientY);
+  e.preventDefault();
+}, {passive: false});
+fieldCvs.addEventListener('touchend', e => {
+  if (!dragState) return;
+  const t = e.changedTouches[0];
+  dragEnd(t.clientX, t.clientY);
+  e.preventDefault();
+}, {passive: false});
+fieldCvs.addEventListener('touchcancel', () => { dragState = null; drawPose(); });
+
+function dragEnd(cx, cy) {
+  const dx = cx - dragState.sxClient;
+  const dy = cy - dragState.syClient;
   const dragPx = Math.sqrt(dx*dx + dy*dy);
   const msg = {type:'goto', x:dragState.sx, y:dragState.sy};
   if (dragPx > DRAG_THRESHOLD_PX) {
@@ -1098,7 +1155,7 @@ window.addEventListener('mouseup', e => {
   clickFlash = {x:dragState.sx, y:dragState.sy, t0:Date.now()};
   dragState = null;
   drawPose();
-});
+}
 
 // Annule le drag si la fenêtre perd le focus
 window.addEventListener('blur', () => {
@@ -1309,8 +1366,40 @@ function drawPose() {
 }
 
 // ── WebSocket ──────────────────────────────────────────────────────────────
+// Jeton d'accès (si le firmware en exige un : WS_TOKEN dans credentials.h),
+// demandé une fois puis gardé dans ce navigateur
+function wsUrl() {
+  let t = '';
+  try { t = localStorage.getItem('wsToken') || ''; } catch (_) {}
+  return 'ws://' + location.hostname + ':81/' + (t ? '?t=' + encodeURIComponent(t) : '');
+}
+
+// Âge de la dernière donnée : rouge au-delà de 1 s ; au-delà de 4 s, la
+// connexion est considérée morte et rouverte
+let lastMsgTime = 0;
+setInterval(() => {
+  const el = document.getElementById('data-age');
+  if (!lastMsgTime) { el.textContent = '—'; el.className = ''; return; }
+  const age = (Date.now() - lastMsgTime) / 1000;
+  el.textContent = age < 10 ? age.toFixed(1) + ' s' : Math.round(age) + ' s';
+  el.className = age > 1 ? 'stale' : '';
+  if (age > 4 && ws && ws.readyState === WebSocket.OPEN) ws.close();
+}, 250);
+
+function applyConfig(c) {
+  OBS_DETECT_MM = c.obsDetect; OBS_WIDTH_MM = c.obsWidth;
+  LIDAR_BLIND   = c.blind || [];
+  MATCH_W_MM = c.tw; MATCH_H_MM = c.th; ESSAI_W_MM = c.ew; ESSAI_H_MM = c.eh;
+  ROBOT_FRONT_MM = c.rf; ROBOT_BACK_MM = c.rb; ROBOT_WIDTH_MM = c.rw;
+  MATCH_S = c.matchMs / 1000; ENDGAME_S = c.endgameMs / 1000;
+  if (c.motState) MOT_STATE = c.motState;
+  if (c.motPhase) MOT_PHASE = c.motPhase;
+  document.getElementById('st-clock-max').textContent = '/ ' + MATCH_S + ' s';
+  setTable(essaiMode);
+}
+
 function connect() {
-  ws = new WebSocket('ws://' + location.hostname + ':81');
+  ws = new WebSocket(wsUrl());
 
   ws.onopen = () => {
     document.getElementById('ws-status').textContent = '● Connecté';
@@ -1325,8 +1414,16 @@ function connect() {
   };
 
   ws.onmessage = ev => {
+    lastMsgTime = Date.now();
     let d;
     try { d = JSON.parse(ev.data); } catch(_) { return; }
+
+    if (d.type === 'config') { applyConfig(d); return; }
+    if (d.type === 'auth' && !d.ok) {
+      const t = prompt('Jeton d\'accès du robot :');
+      try { if (t !== null) localStorage.setItem('wsToken', t); } catch (_) {}
+      return;   // le robot ferme la connexion ; reconnexion avec le jeton
+    }
 
     if (d.type === 'pose') {
       pose = d;
@@ -1381,10 +1478,14 @@ function connect() {
     } else if (d.l) {
 
       logs.push(d);
-      if (logs.length > 1000) logs.splice(0, 200);   // garde les 800 derniers
-      appendLine(d);
-      document.getElementById('log-count').textContent =
-        document.getElementById('logs').childElementCount + ' / ' + logs.length + ' logs';
+      if (logs.length > 1000) {
+        logs.splice(0, 200);       // garde les 800 derniers, à l'écran aussi
+        renderLogs();
+      } else {
+        appendLine(d);
+        document.getElementById('log-count').textContent =
+          document.getElementById('logs').childElementCount + ' / ' + logs.length + ' logs';
+      }
     }
   };
 }
@@ -1619,11 +1720,11 @@ function updateStatusBar() {
   const inMatch = pose.ph >= 4;
   document.getElementById('st-clock').style.display = inMatch ? 'flex' : 'none';
   if (inMatch) {
-    const s = Math.min(100, pose.el / 1000);
+    const s = Math.min(MATCH_S, pose.el / 1000);
     document.getElementById('st-clock-txt').textContent = s.toFixed(0) + ' s';
     const fill = document.getElementById('st-clock-fill');
-    fill.style.width = s + '%';
-    fill.classList.toggle('endgame', s >= 85);
+    fill.style.width = (100 * s / MATCH_S) + '%';
+    fill.classList.toggle('endgame', s >= ENDGAME_S);
   }
 
   if (pose.ml)      setChip('st-motors', 'st-red',   'Moteurs verrouillés<small>fin de match</small>');
@@ -1659,10 +1760,20 @@ function setActControl(enabled) {
   });
 }
 
-function sendServo(id, val) {
+// Curseurs : au plus un envoi toutes les 100 ms pendant le glissement, et
+// toujours la valeur finale (au relâchement, ou en différé)
+const servoLast = {}, servoTimer = {};
+function sendServo(id, val, final) {
   if (!ws || ws.readyState !== WebSocket.OPEN) return;
   document.getElementById('sv-' + id).textContent = Math.round(val) + '%';
-  ws.send(JSON.stringify({type:'servo', id:id, val:parseFloat(val)}));
+  const now = Date.now(), since = now - (servoLast[id] || 0);
+  clearTimeout(servoTimer[id]);
+  if (final || since >= 100) {
+    servoLast[id] = now;
+    ws.send(JSON.stringify({type:'servo', id:id, val:parseFloat(val)}));
+  } else {
+    servoTimer[id] = setTimeout(() => sendServo(id, val, true), 100 - since);
+  }
 }
 
 function sendSeq(id) {
