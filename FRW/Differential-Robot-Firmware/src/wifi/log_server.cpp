@@ -71,15 +71,35 @@ void LogServer::begin() {
     WiFi.setTxPower(WIFI_POWER_19_5dBm);
 
 #if WIFI_USE_STA
+    // Réseaux connus par ordre de priorité : le premier visible est utilisé.
+    // WIFI_STATION_SSID (optionnel, réseau du bureau) passe avant WIFI_STA_SSID.
+    struct KnownNet { const char *ssid, *pass; };
+    static const KnownNet nets[] = {
+#ifdef WIFI_STATION_SSID
+        { WIFI_STATION_SSID, WIFI_STATION_PASSWORD },
+#endif
+        { WIFI_STA_SSID, WIFI_STA_PASS },
+    };
     WiFi.mode(WIFI_STA);
-    WiFi.begin(WIFI_STA_SSID, WIFI_STA_PASS);
-    Serial.printf("[I][WIFI] Connexion à %s ...\n", WIFI_STA_SSID);
-    uint32_t t0 = millis();
-    while (WiFi.status() != WL_CONNECTED && millis() - t0 < 10000)
-        vTaskDelay(pdMS_TO_TICKS(500));
+    int found = WiFi.scanNetworks();
+    for (const KnownNet &n : nets) {
+        bool visible = false;
+        for (int i = 0; i < found && !visible; i++)
+            visible = (WiFi.SSID(i) == n.ssid);
+        if (!visible) continue;
+        Serial.printf("[I][WIFI] Connexion à %s ...\n", n.ssid);
+        WiFi.begin(n.ssid, n.pass);
+        uint32_t t0 = millis();
+        while (WiFi.status() != WL_CONNECTED && millis() - t0 < 10000)
+            vTaskDelay(pdMS_TO_TICKS(500));
+        if (WiFi.status() == WL_CONNECTED) break;
+        WiFi.disconnect();
+    }
+    WiFi.scanDelete();
     if (WiFi.status() == WL_CONNECTED) {
         String ip = WiFi.localIP().toString();
-        Serial.printf("[I][WIFI] Connecté — http://%s\n", ip.c_str());
+        Serial.printf("[I][WIFI] Connecté à %s — http://%s\n",
+                      WiFi.SSID().c_str(), ip.c_str());
         strncpy(gDisplay.wifi_ip, ip.c_str(), sizeof(gDisplay.wifi_ip) - 1);
     } else {
         Serial.println("[W][WIFI] STA échoué — repli en mode AP");
