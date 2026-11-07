@@ -4,7 +4,8 @@
 
 void buttonsInit();
 
-// true = tirette retirée (pin HIGH via pull-up externe)
+// true = tirette retirée (pin HIGH via pull-up externe).
+// Anti-rebond : un changement n'est pris en compte qu'après TIRETTE_STABLE_MS.
 bool tirette();
 
 // Lit l'état du switch d'équipe : HIGH = YELLOW, LOW = BLUE

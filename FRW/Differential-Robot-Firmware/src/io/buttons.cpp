@@ -8,8 +8,23 @@ void buttonsInit() {
     pinMode(BTN_INIT_PIN,   INPUT_PULLUP);
 }
 
+// État validé seulement après TIRETTE_STABLE_MS sans changement, à
+// l'insertion comme au retrait : un rebond ou un parasite ne démarre pas le
+// match. Lecture à appeler régulièrement (boucle pré-match à 20 ms).
 bool tirette() {
-    return digitalRead(BTN_TIRETTE_PIN) == HIGH;  // HIGH = retirée
+    static bool     stable  = digitalRead(BTN_TIRETTE_PIN) == HIGH;
+    static bool     last    = stable;
+    static uint32_t since   = millis();
+
+    bool     raw = digitalRead(BTN_TIRETTE_PIN) == HIGH;  // HIGH = retirée
+    uint32_t now = millis();
+    if (raw != last) {
+        last  = raw;
+        since = now;
+    } else if (raw != stable && now - since >= TIRETTE_STABLE_MS) {
+        stable = raw;
+    }
+    return stable;
 }
 
 // Retourne true sur le premier appel détectant un front descendant

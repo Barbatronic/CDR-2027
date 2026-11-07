@@ -264,6 +264,7 @@
 #define BTN_TIRETTE_PIN     14    // pull-up externe — LOW = tirette en place
 #define BTN_TEAM_PIN        17    // pull-up interne — LOW = pressé
 #define BTN_INIT_PIN         3    // pull-up interne — LOW = pressé
+#define TIRETTE_STABLE_MS  150    // anti-rebond tirette : état stable avant prise en compte
 
 // ─── NEOPIXEL ────────────────────────────────────────────────────────────────
 #define NEO_PIN             46
