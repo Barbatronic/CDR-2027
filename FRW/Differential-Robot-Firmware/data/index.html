@@ -243,6 +243,24 @@ body {
 }
 .calib-inp:focus { outline:none; border-color:#5a7a5a; }
 .calib-unit  { font-size:11px; color:#666; }
+#calib-saved { font-size:11px; font-weight:normal; letter-spacing:0; margin-left:8px; }
+#calib-saved.ok    { color:#6ddb60; }
+#calib-saved.dirty { color:#ffa94d; }
+.calrun-box {
+  background:#111; border:1px solid #333; border-radius:4px; padding:8px 10px;
+  display:flex; flex-direction:column; gap:5px; font-size:12px; color:#ccc;
+}
+.calrun-box .hint { color:#888; font-size:11px; line-height:1.4; }
+.calrun-box .res  { font-family:monospace; color:#e0e0e0; line-height:1.5; }
+.calrun-box .res .warn { color:#ffa94d; }
+.calrun-box .res .good { color:#6ddb60; }
+.calrun-hdr { display:flex; align-items:center; gap:8px; font-weight:bold; color:#aaa; }
+.calrun-hdr .act-btn { margin-left:auto; }
+#cal-obs { width:100%; border-collapse:collapse; font-family:monospace; font-size:11px; }
+#cal-obs td, #cal-obs th { padding:2px 4px; text-align:right; border-bottom:1px solid #222; }
+#cal-obs th { color:#777; font-weight:normal; }
+#cfg-text { width:100%; height:110px; background:#0d0d0d; color:#e0e0e0; border:1px solid #444;
+  font-family:monospace; font-size:11px; display:none; }
 
 /* ── Logs ── */
 #log-filters {
@@ -487,11 +505,16 @@ body {
 
       <!-- ── Onglet CALIBRATION ── -->
       <div id="tab-calib" class="tab-pane" style="gap:4px;">
-        <div class="calib-group">MÉCANIQUE</div>
+        <div class="calib-group">MÉCANIQUE <span id="calib-saved"></span></div>
         <div class="calib-row">
-          <span class="calib-lbl">&Oslash; enc.</span>
+          <span class="calib-lbl">&Oslash; enc. moyen</span>
           <input class="calib-inp" type="number" id="c-encWheelDiam" step="0.01" min="45" max="55" onchange="sendCalib('encWheelDiam',+this.value)">
           <span class="calib-unit">mm</span>
+        </div>
+        <div class="calib-row">
+          <span class="calib-lbl">Rapport D/G enc.</span>
+          <input class="calib-inp" type="number" id="c-encWheelRatio" step="0.0001" min="0.97" max="1.03" onchange="sendCalib('encWheelRatio',+this.value)">
+          <span class="calib-unit">&Oslash; droite / gauche</span>
         </div>
         <div class="calib-row">
           <span class="calib-lbl">Base enc.</span>
@@ -553,7 +576,54 @@ body {
           <span class="calib-unit">mm/s&sup2;</span>
         </div>
 
-        <button class="act-btn" onclick="resetCalib()" style="margin-top:12px;align-self:flex-start;">&#8635; Reset défauts</button>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;">
+          <button class="act-btn" onclick="calibCmd('calib_save')" title="Garder ces valeurs au redémarrage (mémoire NVS)">&#x1F4BE; Enregistrer</button>
+          <button class="act-btn" onclick="calibCmd('calib_reset')" title="Revenir aux valeurs de config.h (non enregistré)">&#8635; Valeurs config.h</button>
+          <button class="act-btn" onclick="copyConfigH()" title="Lignes #define à coller dans config.h">Copier pour config.h</button>
+        </div>
+        <textarea id="cfg-text" readonly></textarea>
+
+        <div class="calib-group" style="margin-top:12px;">ROUTINES ODOMÉTRIE <span class="calib-unit" style="letter-spacing:0;font-weight:normal;">— en attente d'init uniquement</span></div>
+
+        <div class="calrun-box" style="border-color:#2d6e42;">
+          <div class="calrun-hdr" style="color:#6ddb60;">Corrections proposées (codeuses)</div>
+          <div class="res" id="cal-solve">Lancer des tours (dans les deux sens) et les deux carrés.</div>
+          <div class="hint">Calculées sur toutes les observations ci-dessous. Un seul bouton applique tout,
+            puis efface les observations : elles ont été mesurées avec l'ancien réglage.</div>
+          <table id="cal-obs"><thead><tr><th style="text-align:left">essai</th><th>R (°)</th><th>S (mm)</th><th>e (°)</th><th></th></tr></thead><tbody></tbody></table>
+          <div><button class="act-btn" onclick="calObsClear()" style="font-size:11px;padding:2px 8px;">Effacer les observations</button></div>
+        </div>
+
+        <div class="calrun-box">
+          <div class="calrun-hdr">1 · Ligne droite (diamètre moyen)
+            <input class="calib-inp" type="number" id="cr-line-mm" value="700" min="100" max="2500" step="50" style="width:64px"> mm
+            <button class="act-btn calrun-btn" onclick="calRun('line','cr-line-mm')">Lancer</button></div>
+          <div class="hint">Robot dos à une bordure, à moins de 25 cm, avec de la place devant (distance + 22 cm).
+            Il recule au contact puis avance. Mesurer ensuite au mètre ruban la distance bordure → arrière du robot.</div>
+          <div class="res" id="cr-line-res"></div>
+        </div>
+
+        <div class="calrun-box">
+          <div class="calrun-hdr">2 · Tours sur place (entraxes)
+            <input class="calib-inp" type="number" id="cr-turns-n" value="3" min="1" max="20" step="1" style="width:48px"> tours
+            <button class="act-btn calrun-btn" onclick="calRun('turns','cr-turns-n')">Lancer</button></div>
+          <div class="hint">Robot dos à une bordure, à moins de 25 cm. Commencer par 3 tours, appliquer,
+            puis 10 tours : au-delà de ~10° d'erreur, le retour contre la bordure n'est plus fiable.</div>
+          <div class="res" id="cr-turns-res"></div>
+        </div>
+
+        <div class="calrun-box">
+          <div class="calrun-hdr">3 · Carré (rapport des diamètres)
+            <input class="calib-inp" type="number" id="cr-sq-l" value="280" min="150" max="1200" step="10" style="width:56px"> mm</div>
+          <div style="display:flex;gap:6px;">
+            <button class="act-btn calrun-btn" onclick="calRun('sq_cw','cr-sq-l')">&#x21BB; Horaire</button>
+            <button class="act-btn calrun-btn" onclick="calRun('sq_ccw','cr-sq-l')">&#x21BA; Anti-horaire</button>
+          </div>
+          <div class="hint">Robot face à l'Est, dos à la bordure ouest, près du coin nord-ouest (moins de 25 cm des deux bordures).
+            Le carré va de x = 360 à 360 + côté et de y = 200 à 200 + côté : 280 mm sur la table d'essai.</div>
+          <div class="res" id="cr-sq-res"></div>
+        </div>
+
       </div>
 
       <!-- ── Onglet LOGS ── -->
@@ -1287,6 +1357,9 @@ function connect() {
     } else if (d.type === 'calib_state') {
       updateCalibUI(d);
 
+    } else if (d.type === 'calres') {
+      onCalRes(d);
+
     } else if (d.type === 'rec') {
       onRecChunk(d);
 
@@ -1607,12 +1680,8 @@ function updateSlider(id, val) {
 }
 
 // ── Calibration ────────────────────────────────────────────────────────────
-const CALIB_DEFAULTS = {
-  encWheelDiam:50.58, encWheelbase:189.0, wheelbase:145.60,
-  driveWheelDiam:57.53, lidarOffset:0.0,
-  kp:1.8, ki:0.01, kd:0.2, iMax:100.0,
-  stopMm:5.0, minSpd:8.0, defaultSpeed:2000.0, defaultAccel:1500.0
-};
+// Valeurs par défaut : celles de config.h, rétablies par le firmware (calib_reset)
+let calibCur = null;          // dernier calib_state reçu
 
 // ── Onglets ────────────────────────────────────────────────────────────────
 function switchTab(name) {
@@ -1630,17 +1699,150 @@ function sendCalib(key, val) {
   ws.send(JSON.stringify({type:'calib', key:key, val:val}));
 }
 
-function resetCalib() {
-  for (const [key, val] of Object.entries(CALIB_DEFAULTS)) {
-    const el = document.getElementById('c-' + key);
-    if (el) el.value = val;
-    sendCalib(key, val);
+function calibCmd(type) {
+  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({type}));
+}
+
+function copyConfigH() {
+  if (!calibCur) return;
+  const c = calibCur, f = (v, n) => Number(v).toFixed(n) + 'f';
+  const txt =
+    `#define ENC_WHEEL_DIAM_MM   ${f(c.encWheelDiam, 4)}\n` +
+    `#define ENC_WHEEL_RATIO     ${f(c.encWheelRatio, 5)}\n` +
+    `#define ENC_WHEELBASE_MM    ${f(c.encWheelbase, 3)}\n` +
+    `#define WHEELBASE_MM        ${f(c.wheelbase, 3)}\n` +
+    `#define DRIVE_WHEEL_DIAM_MM ${f(c.driveWheelDiam, 3)}\n` +
+    `#define LIDAR_OFFSET_DEG    ${f(c.lidarOffset, 2)}\n`;
+  const ta = document.getElementById('cfg-text');
+  ta.value = txt; ta.style.display = 'block'; ta.select();
+  // Pas de presse-papiers asynchrone en HTTP : copie par la sélection
+  try { document.execCommand('copy'); } catch (_) {}
+}
+
+// ── Routines de calibration (firmware : strategy/calib_routines.h) ─────────
+// Observation {id, R rad, S mm, e rad} : e = u·R + v·S, résolu sur l'ensemble.
+let calObs = [];
+try { calObs = JSON.parse(localStorage.getItem('calObs') || '[]'); } catch (_) {}
+const RAD = 180 / Math.PI;
+
+function calRun(id, inputId) {
+  if (!ws || ws.readyState !== WebSocket.OPEN) return;
+  if (pose.ph !== 0) { alert('Routines disponibles seulement en attente d\'init (avant INIT).'); return; }
+  const p = +document.getElementById(inputId).value;
+  ws.send(JSON.stringify({type: 'calrun', id, p}));
+  const box = id.startsWith('sq') ? 'cr-sq-res' : 'cr-' + id + '-res';
+  document.getElementById(box).innerHTML = 'en cours…';
+}
+
+let calTurnDiag = [];          // rapports mesuré/commandé par roue, par essai de tours
+let calPending = null;         // corrections calculées par renderCalObs()
+function calApplyAll() {
+  if (!calPending) return;
+  sendCalib('encWheelbase', +calPending.bNew.toFixed(3));
+  if (calPending.rNew !== null) sendCalib('encWheelRatio', +calPending.rNew.toFixed(5));
+  calObsClear();
+}
+
+function calObsSave() { try { localStorage.setItem('calObs', JSON.stringify(calObs)); } catch (_) {} }
+function calObsClear() { calObs = []; calObsSave(); renderCalObs(); }
+function calObsDel(i) { calObs.splice(i, 1); calObsSave(); renderCalObs(); }
+
+function onCalRes(d) {
+  const box = d.id.startsWith('sq') ? 'cr-sq-res' : 'cr-' + d.id + '-res';
+  const el = document.getElementById(box);
+  if (!d.ok) { el.innerHTML = `<span class="warn">${d.abort ? 'interrompu' : 'échec : pas de contact bordure'}</span>`; return; }
+
+  if (d.id === 'line') {
+    el.innerHTML =
+      `Odométrie : <b>${d.S.toFixed(1)} mm</b> (cap ${d.rotDeg.toFixed(2)}°)<br>` +
+      `Mesuré : <input class="calib-inp" type="number" id="cr-line-meas" step="0.5" style="width:70px"> mm ` +
+      `→ <span id="cr-line-new">—</span> <button class="act-btn" id="cr-line-apply" disabled>Appliquer</button>` +
+      `<br><span style="color:#777">Appliquer efface les observations : faire la ligne droite avant les tours et les carrés.</span>`;
+    const inp = document.getElementById('cr-line-meas');
+    inp.oninput = () => {
+      const m = +inp.value, ok = m > 0.5 * d.S && m < 1.5 * d.S;
+      const D = d.D * m / d.S;
+      document.getElementById('cr-line-new').textContent = ok ? `Ø ${D.toFixed(4)} mm (${((m / d.S - 1) * 100).toFixed(2)} %)` : '—';
+      const b = document.getElementById('cr-line-apply');
+      b.disabled = !ok;
+      b.onclick = () => { sendCalib('encWheelDiam', +D.toFixed(4)); calObsClear(); };
+    };
+    return;
   }
+
+  calObs.push({id: d.id === 'turns' ? (d.dir > 0 ? 'tours ↺' : 'tours ↻') : d.id, R: d.R, S: d.S, e: d.e});
+  calObsSave();
+  if (d.id === 'turns') {
+    const u = d.e / d.R;
+    const wbNew = d.wb * (d.n * 2 * Math.PI) / (Math.abs(d.Rt) * (1 + u));
+    el.innerHTML =
+      `${d.n} tours ${d.dir > 0 ? 'à gauche' : 'à droite'} (le prochain : ${d.dir > 0 ? 'à droite' : 'à gauche'}) : erreur de cap <b>${(d.e * RAD).toFixed(2)}°</b> sur ${(d.R * RAD).toFixed(0)}° ` +
+      `(${(u * 100).toFixed(3)} %) → correction des codeuses : cadre vert en haut<br>Entraxe moteur : ${d.wb.toFixed(2)} → <b>${wbNew.toFixed(2)} mm</b> ` +
+      `<button class="act-btn" onclick="sendCalib('wheelbase', ${wbNew.toFixed(3)})">Appliquer</button>` +
+      (d.aC ? `<br>Par roue (mesuré / commandé moteur) : G ${Math.abs(d.aL).toFixed(0)} / ${d.aC.toFixed(0)} mm ` +
+              `= <b>${(Math.abs(d.aL) / d.aC).toFixed(4)}</b>, D ${Math.abs(d.aR).toFixed(0)} / ${d.aC.toFixed(0)} mm ` +
+              `= <b>${(Math.abs(d.aR) / d.aC).toFixed(4)}</b>` : '');
+    calTurnDiag.push({dir: d.dir, kL: Math.abs(d.aL) / d.aC, kR: Math.abs(d.aR) / d.aC});
+    if (calTurnDiag.length >= 2) {
+      el.innerHTML += '<br><span style="color:#777">Historique ↺/↻ : ' + calTurnDiag.slice(-6).map(t =>
+        `${t.dir > 0 ? '↺' : '↻'} G ${t.kL.toFixed(4)} D ${t.kR.toFixed(4)}`).join(' · ') + '</span>';
+    }
+  } else {
+    el.innerHTML = `${d.id === 'sq_cw' ? 'Horaire' : 'Anti-horaire'} : erreur de cap <b>${(d.e * RAD).toFixed(2)}°</b>, ` +
+                   `x ${d.ex >= 0 ? '+' : ''}${d.ex.toFixed(1)} mm`;
+  }
+  renderCalObs();
+}
+
+function renderCalObs() {
+  const tb = document.querySelector('#cal-obs tbody');
+  tb.innerHTML = calObs.map((o, i) =>
+    `<tr><td style="text-align:left">${o.id}</td><td>${(o.R * RAD).toFixed(0)}</td><td>${o.S.toFixed(0)}</td>` +
+    `<td>${(o.e * RAD).toFixed(2)}</td><td><a href="#" onclick="calObsDel(${i});return false;" style="color:#777">✕</a></td></tr>`).join('');
+  const out = document.getElementById('cal-solve');
+  calPending = null;
+  if (!calObs.length || !calibCur) { out.innerHTML = 'Lancer des tours (dans les deux sens) et les deux carrés.'; return; }
+
+  // Moindres carrés e = u·R + v·S
+  let rr = 0, rs = 0, ss = 0, re = 0, se = 0;
+  for (const o of calObs) { rr += o.R * o.R; rs += o.R * o.S; ss += o.S * o.S; re += o.R * o.e; se += o.S * o.e; }
+  const det = rr * ss - rs * rs;
+  // Le rapport D/G ne se déduit que des carrés (avance importante) : sans
+  // carré, les petites avances des tours donneraient une valeur absurde
+  const hasSquare = calObs.some(o => o.id.startsWith('sq'));
+  let u, v = null;
+  if (hasSquare && calObs.length >= 2 && det > 1e-6 * rr * ss) { u = (re * ss - se * rs) / det; v = (se * rr - re * rs) / det; }
+  else u = re / rr;
+
+  const b = calibCur.encWheelbase, r = calibCur.encWheelRatio;
+  const bNew = b / (1 + u);
+  let rNew = v === null ? null : r * (1 + v * b);
+  const rOut = rNew !== null && (rNew < 0.97 || rNew > 1.03);
+  let html = `Entraxe codeuses : ${b.toFixed(3)} → <b>${bNew.toFixed(3)} mm</b>`;
+  if (rOut) {
+    html += `<br>Rapport D/G : <span class="warn">${rNew.toFixed(5)} hors plage (0,97–1,03), mesures incohérentes : non proposé</span>`;
+    rNew = null;
+  } else if (rNew === null) {
+    html += '<br>Rapport D/G : <span class="warn">il faut aussi les deux carrés</span>';
+  } else {
+    html += `<br>Rapport D/G : ${r.toFixed(5)} → <b>${rNew.toFixed(5)}</b>`;
+    const res = calObs.map(o => (o.e - u * o.R - v * o.S) * RAD);
+    const rms = Math.sqrt(res.reduce((a, x) => a + x * x, 0) / res.length);
+    html += `<br><span class="${rms < 0.3 ? 'good' : 'warn'}">résidu ${rms.toFixed(2)}° sur ${calObs.length} essais</span>`;
+  }
+  calPending = {bNew, rNew};
+  html += `<br><button class="act-btn" onclick="calApplyAll()">Appliquer ${rNew === null ? "l'entraxe" : 'les deux'}</button>`;
+  out.innerHTML = html;
 }
 
 function updateCalibUI(d) {
+  calibCur = d;
+  const sv = document.getElementById('calib-saved');
+  sv.textContent = d.saved ? '✓ enregistrée' : '● non enregistrée';
+  sv.className = d.saved ? 'ok' : 'dirty';
+  renderCalObs();
   const map = {
-    encWheelDiam:d.encWheelDiam, encWheelbase:d.encWheelbase,
+    encWheelDiam:d.encWheelDiam, encWheelRatio:d.encWheelRatio, encWheelbase:d.encWheelbase,
     wheelbase:d.wheelbase, driveWheelDiam:d.driveWheelDiam,
     lidarOffset:d.lidarOffset,
     kp:d.kp, ki:d.ki, kd:d.kd, iMax:d.iMax,
