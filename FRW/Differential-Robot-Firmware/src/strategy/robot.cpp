@@ -112,10 +112,29 @@ bool Robot::goStall(float mm, uint32_t timeoutMs, uint32_t stallConfirmMs) {
     int32_t  prevL        = _encLeft  ? _encLeft->getCount()  : 0;
     int32_t  prevR        = _encRight ? _encRight->getCount() : 0;
     float    traveled     = 0.0f;
-    uint32_t stallSince   = 0;
     uint32_t timeoutStart = 0;
 
-    const int32_t kThresh = (int32_t)(STALL_THRESH_MM / gCalib.mmPerCount) + 1;
+    // Blocage = aucune des deux roues codeuses n'a PROGRESSÉ dans le sens du
+    // mouvement sur la fenêtre stallConfirmMs (progression nette, signée).
+    // Les vibrations des moteurs qui forcent contre la bordure (pas sautés)
+    // font osciller les roues codeuses : en valeur absolue cycle par cycle,
+    // elles masquaient le blocage ; en progression nette, elles s'annulent.
+    // Les deux roues doivent être arrêtées : robot plaqué à plat.
+    constexpr int WIN_MAX = 32;
+    int nWin = (int)(stallConfirmMs / OBS_POLL_MS);
+    if (nWin < 2) nWin = 2;
+    if (nWin > WIN_MAX) nWin = WIN_MAX;
+    const float progMin = STALL_THRESH_MM * nWin;   // même vitesse seuil qu'avant (25 mm/s)
+    int32_t histL[WIN_MAX], histR[WIN_MAX];
+    int     hIdx = 0, hFill = 0;
+    float   progL = 0, progR = 0;                   // dernière progression mesurée (mm)
+
+    // Armement : pas de blocage tant que le robot accélère encore (à 10 %,
+    // il progresse moins que le seuil sur la première fenêtre) — sauf s'il a
+    // déjà parcouru 5 mm, ou s'il est resté collé jusqu'à la vitesse de croisière
+    const float    spd   = _motion.getSpeed(), acc = _motion.getAcceleration();
+    const uint32_t armMs = (acc > 1.0f ? (uint32_t)(1000.0f * spd / acc) : 0) + stallConfirmMs;
+    const uint32_t t0    = millis();
 
     while (_motion.isMoving()) {
         vTaskDelay(pdMS_TO_TICKS(OBS_POLL_MS));
@@ -123,14 +142,11 @@ bool Robot::goStall(float mm, uint32_t timeoutMs, uint32_t stallConfirmMs) {
 
         int32_t curL = _encLeft  ? _encLeft->getCount()  : prevL;
         int32_t curR = _encRight ? _encRight->getCount() : prevR;
-        int32_t dL   = abs(curL - prevL);
-        int32_t dR   = abs(curR - prevR);
+        traveled += (float)(abs(curL - prevL) + abs(curR - prevR)) * 0.5f * gCalib.mmPerCount;
         prevL = curL;
         prevR = curR;
 
         uint32_t now = millis();
-        traveled += (float)(dL + dR) * 0.5f * gCalib.mmPerCount;
-
         if (timeoutStart == 0 && traveled >= fabsf(mm))
             timeoutStart = now;
 
@@ -140,31 +156,40 @@ bool Robot::goStall(float mm, uint32_t timeoutMs, uint32_t stallConfirmMs) {
             _motion.softStop(OBS_STOP_ACCEL_MMS2);
             gDisplay.robot_state = RobotState::OBSTACLE;
             _waitObstacleClear(moveDir);
-            stallSince = 0;
             float remaining = fabsf(mm) - traveled;
             if (remaining > 0.5f) _motion.startGo(sign * remaining);
             prevL = _encLeft  ? _encLeft->getCount()  : prevL;
             prevR = _encRight ? _encRight->getCount() : prevR;
+            hFill = 0;                               // fenêtre repartie de zéro
             gDisplay.robot_state = RobotState::MOVING;
             continue;
         }
 
-        // Détection stall : active dès le début (mur plus proche que prévu aussi)
-        if (dL < kThresh && dR < kThresh) {
-            if (stallSince == 0) stallSince = now;
-            if (now - stallSince >= stallConfirmMs) {
+        // Progression nette sur la fenêtre
+        const bool armed = traveled >= 5.0f || now - t0 >= armMs;
+        if (armed && hFill >= nWin) {
+            const int old = (hIdx - nWin + WIN_MAX) % WIN_MAX;
+            progL = sign * (float)(curL - histL[old]) * gCalib.mmPerCountL;
+            progR = sign * (float)(curR - histR[old]) * gCalib.mmPerCountR;
+            if (progL < progMin && progR < progMin) {
                 _motion.stop();
                 _motion.syncPose();
+                LOG_I("STALL", "Contact : progression G %.1f D %.1f mm / %d ms",
+                      (double)progL, (double)progR, nWin * OBS_POLL_MS);
                 return true;
             }
-        } else {
-            stallSince = 0;
         }
+        histL[hIdx] = curL;
+        histR[hIdx] = curR;
+        hIdx = (hIdx + 1) % WIN_MAX;
+        if (hFill < nWin) hFill++;
 
         // Timeout : seulement après avoir atteint la position normale
         if (timeoutStart != 0 && now - timeoutStart >= timeoutMs) {
             _motion.stop();
             _motion.syncPose();
+            LOG_W("STALL", "Pas de contact (timeout) : progression G %.1f D %.1f mm, seuil %.1f",
+                  (double)progL, (double)progR, (double)progMin);
             return false;
         }
 
@@ -172,6 +197,8 @@ bool Robot::goStall(float mm, uint32_t timeoutMs, uint32_t stallConfirmMs) {
     }
 
     _motion.syncPose();
+    LOG_W("STALL", "Pas de contact (course finie) : progression G %.1f D %.1f mm, seuil %.1f",
+          (double)progL, (double)progR, (double)progMin);
     return false;
 }
 
