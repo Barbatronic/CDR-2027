@@ -454,6 +454,19 @@ bool MotionController::_runWheelPidStep() {
     if (fabsf(outL) < gCalib.minSpd) outL = copysignf(gCalib.minSpd, eL);
     if (fabsf(outR) < gCalib.minSpd) outR = copysignf(gCalib.minSpd, eR);
 
+    // Erreurs mesurées sur les roues codeuses (entraxe encWheelbase), commandes
+    // envoyées aux roues motrices (entraxe wheelbase) : en rotation, un arc de
+    // roue codeuse correspond à un arc moteur plus court. Sans cette mise à
+    // l'échelle de la partie différentielle, rotation ×1,3 trop rapide et
+    // freinage au-delà de l'accélération réglée. Translation inchangée.
+    {
+        const float k    = gCalib.wheelbase / gCalib.encWheelbase;
+        const float comm = (outL + outR) * 0.5f;
+        const float diff = (outR - outL) * 0.5f * k;
+        outL = comm - diff;
+        outR = comm + diff;
+    }
+
     _motion->setMotorVelocities(outL, outR);
     _lastCmdL = outL;
     _lastCmdR = outR;
@@ -531,8 +544,8 @@ bool MotionController::_runPoseStep() {
         v_angular = fmaxf(-omega_max, fminf(v_angular, omega_max));
     }
 
-    // Cinématique différentielle
-    const float half_b = gCalib.encWheelbase * 0.5f;
+    // Cinématique différentielle : ω appliqué aux roues MOTRICES
+    const float half_b = gCalib.wheelbase * 0.5f;
     float vL = v_linear - v_angular * half_b;
     float vR = v_linear + v_angular * half_b;
     vL = fmaxf(-_phaseSpeed, fminf(vL, _phaseSpeed));
