@@ -49,9 +49,10 @@
 
 #define ENC_PPR             2048
 #define ENC_COUNTS_PER_REV  (ENC_PPR * 4)
-#define ENC_WHEEL_DIAM_MM   50.58f  // diamètre MOYEN des deux roues codeuses
+#define ENC_WHEEL_DIAM_MM   50.5821f // diamètre MOYEN des deux roues codeuses (ligne droite, 7/11/2026)
 #define ENC_WHEEL_RATIO     1.0f    // diamètre droit / diamètre gauche (carré, lot 2)
-#define ENC_WHEELBASE_MM    189.0f  // distance entre les deux roues codeuses
+#define ENC_WHEELBASE_MM    187.727f // entre roues codeuses (tours sur place, 7/11/2026 ;
+                                     // roue droite asymétrique ±0,4 % selon le sens, roues imprimées)
 #define MM_PER_COUNT        (3.14159265f * ENC_WHEEL_DIAM_MM / ENC_COUNTS_PER_REV)
 #define ENC_LEFT_INVERT     false   // inverser sens encodeur gauche
 #define ENC_RIGHT_INVERT    true    // inverser sens encodeur droit
@@ -70,7 +71,7 @@
 #define STEPS_PER_MM        ((float)STEPPER_STEPS_REV / (3.14159265f * DRIVE_WHEEL_DIAM_MM))
 
 // ─── GÉOMÉTRIE ROBOT ─────────────────────────────────────────────────────────
-#define WHEELBASE_MM            145.60f  // distance entre roues motrices (à mesurer)
+#define WHEELBASE_MM            146.07f  // entre roues motrices (tours sur place, 7/11/2026)
 
 // ─── DIMENSIONS ROBOT ────────────────────────────────────────────────────────
 // Sabot inversé en 2027. Avant mesuré bras bas ouverts : bras fermés/repos, ils
