@@ -485,7 +485,14 @@ void loop() {
         bool postInit = (st != RobotState::WAIT_INIT) && (st != RobotState::INIT);
         bool inMatch  = (gDisplay.match_start_ms > 0) &&
                         (millis() - gDisplay.match_start_ms < MATCH_DURATION_MS);
-        if (postInit && !inMatch) {
+        // Cible bornée à la table, moins la demi-largeur du robot
+        const float m = ROBOT_WIDTH_MM * 0.5f;
+        const bool inTable = fcX >= m && fcX <= gTable.w() - m &&
+                             fcY >= m && fcY <= gTable.h() - m;
+        if (!inTable) {
+            LOG_W("UI", "Goto refuse : (%.0f, %.0f) hors table (marge %.0f mm)",
+                  (double)fcX, (double)fcY, (double)m);
+        } else if (postInit && !inMatch) {
             robot.enableMotors();
             robot.setTarget(fcX, fcY, fcTheta);   // fcTheta = NAN si pas de drag
             if (isnanf(fcTheta)) LOG_I("UI", "Goto click: %.0f,%.0f", (double)fcX, (double)fcY);
