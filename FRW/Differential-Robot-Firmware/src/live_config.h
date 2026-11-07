@@ -29,3 +29,13 @@ struct Calib {
 };
 
 extern Calib gCalib;
+
+// Dimensions de la table en cours : match (3000 × 2000) ou essai (1000 × 700).
+// Basculé depuis l'interface, uniquement avant ou après un match.
+struct Table {
+    volatile bool essai = TERRAIN_ESSAI;
+    float w() const { return essai ? ESSAI_WIDTH_MM  : TABLE_WIDTH_MM;  }
+    float h() const { return essai ? ESSAI_HEIGHT_MM : TABLE_HEIGHT_MM; }
+};
+
+extern Table gTable;

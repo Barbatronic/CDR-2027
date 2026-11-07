@@ -300,6 +300,7 @@ body {
     <div id="field-toolbar">
       <span class="toolbar-lbl">TERRAIN</span>
       <button class="tool-btn" id="lidar-abs-btn" onclick="toggleLidarAbs()">&#x25CF; LIDAR terrain</button>
+      <button class="tool-btn" id="table-btn" onclick="toggleTable()" title="Bascule table de match / table d'essai (hors match)">&#x25A6; Table de match</button>
       <span style="margin-left:auto;font-size:11px;color:#666;">
         &#x1F5B1; <b id="cursor-coord" style="color:#888">—</b>
       </span>
@@ -534,9 +535,13 @@ body {
 <script src="poi.js"></script>
 <script>
 // ── Constantes terrain ──────────────────────────────────────────────────────
-const FIELD_W_MM = 3000, FIELD_H_MM = 2000;
-const CVS_W = 900, CVS_H = 600;
-const SX = CVS_W / FIELD_W_MM, SY = CVS_H / FIELD_H_MM;   // 0.3 px/mm
+// Table de match 3000 × 2000, ou table d'essai 1000 × 700 (pose.te = 1).
+let FIELD_W_MM = 3000, FIELD_H_MM = 2000;
+let CVS_W = 900, CVS_H = 600;
+let SX = CVS_W / FIELD_W_MM, SY = CVS_H / FIELD_H_MM;   // 0.3 px/mm en match
+let essaiMode = false;
+const ESSAI_W_MM = 1000, ESSAI_H_MM = 700;
+const ROBOT_R_MM = 140;   // rayon d'encombrement, dessiné à l'échelle sur l'essai
 
 // ── Constantes radar ────────────────────────────────────────────────────────
 const RDR_CX = 100, RDR_CY = 100, RDR_R = 90;    // centre et rayon du radar (px)
@@ -577,6 +582,51 @@ function toggleLevel(l) {
 function toggleAutoscroll() {
   autoscroll = !autoscroll;
   document.getElementById('as-btn').classList.toggle('active', autoscroll);
+}
+
+function setTable(essai) {
+  essaiMode  = essai;
+  FIELD_W_MM = essai ? ESSAI_W_MM : 3000;
+  FIELD_H_MM = essai ? ESSAI_H_MM : 2000;
+  CVS_W = 900;
+  CVS_H = Math.round(CVS_W * FIELD_H_MM / FIELD_W_MM);
+  SX = CVS_W / FIELD_W_MM; SY = CVS_H / FIELD_H_MM;
+  canvas.width = CVS_W; canvas.height = CVS_H;
+  document.getElementById('field-wrap').style.aspectRatio = FIELD_W_MM + '/' + FIELD_H_MM;
+  document.getElementById('field-img').style.visibility = essai ? 'hidden' : 'visible';
+  const b = document.getElementById('table-btn');
+  b.textContent = essai ? '\u25A6 Table d\'essai 1000\u00D7700' : '\u25A6 Table de match';
+  b.classList.toggle('active', essai);
+  drawPose();
+}
+
+// Bascule demandée au firmware ; l'affichage suit le champ te de la pose.
+function toggleTable() {
+  if (!ws || ws.readyState !== WebSocket.OPEN) return;
+  if (pose.ph !== undefined && pose.ph !== 0 && pose.ph !== 6) {
+    alert('Changement de table possible seulement en attente d\'init ou après le match.');
+    return;
+  }
+  ws.send(JSON.stringify({type: 'table', essai: essaiMode ? 0 : 1}));
+}
+
+// Fond de la table d'essai : quadrillage tous les 100 mm, axes tous les 500 mm
+function drawEssaiBackground() {
+  ctx.fillStyle = '#1d2a1d';
+  ctx.fillRect(0, 0, CVS_W, CVS_H);
+  for (let x = 0; x <= FIELD_W_MM; x += 100) {
+    ctx.strokeStyle = x % 500 === 0 ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.12)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x * SX + 0.5, 0); ctx.lineTo(x * SX + 0.5, CVS_H); ctx.stroke();
+  }
+  for (let y = 0; y <= FIELD_H_MM; y += 100) {
+    ctx.strokeStyle = y % 500 === 0 ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.12)';
+    ctx.beginPath(); ctx.moveTo(0, y * SY + 0.5); ctx.lineTo(CVS_W, y * SY + 0.5); ctx.stroke();
+  }
+  ctx.fillStyle = 'rgba(255,255,255,0.45)';
+  ctx.font = '12px monospace';
+  for (let x = 100; x < FIELD_W_MM; x += 100) ctx.fillText(x, x * SX + 3, 13);
+  for (let y = 100; y < FIELD_H_MM; y += 100) ctx.fillText(y, 3, y * SY - 3);
 }
 
 function toggleLidarAbs() {
@@ -807,6 +857,7 @@ const POI_STYLE = {
 };
 
 function drawPOIs() {
+  if (essaiMode) return;   // POI de la table de match, hors table d'essai
   ctx.lineWidth = 1;
   for (const p of POIS) {
     const px = p.x * SX, py = p.y * SY;
@@ -845,7 +896,7 @@ document.getElementById('field-canvas').addEventListener('mousemove', e => {
   const syDisp = rect.height / FIELD_H_MM;
   const hitR2  = 12 * 12;   // rayon clic 12 px display
   let found = null;
-  for (const p of POIS) {
+  for (const p of (essaiMode ? [] : POIS)) {
     const dx = dispX - p.x * sxDisp;
     const dy = dispY - p.y * syDisp;
     if (dx * dx + dy * dy < hitR2) { found = p; break; }
@@ -955,6 +1006,7 @@ function updateMotionPanel() {
 // ── Terrain ────────────────────────────────────────────────────────────────
 function drawPose() {
   ctx.clearRect(0, 0, CVS_W, CVS_H);
+  if (essaiMode) drawEssaiBackground();
 
   drawPOIs();
 
@@ -1065,6 +1117,17 @@ function drawPose() {
   const py  = pose.y * SY;
   const rad = pose.a * Math.PI / 180;
 
+  // Encombrement réel du robot (table d'essai seulement, lisible à cette échelle)
+  if (essaiMode) {
+    ctx.beginPath();
+    ctx.arc(px, py, ROBOT_R_MM * SX, 0, 2 * Math.PI);
+    ctx.fillStyle = 'rgba(255,80,80,0.15)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,80,80,0.7)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
+
   // Ombre
   ctx.beginPath();
   ctx.arc(px, py, 10, 0, 2 * Math.PI);
@@ -1115,6 +1178,7 @@ function connect() {
 
     if (d.type === 'pose') {
       pose = d;
+      if (d.te !== undefined && (d.te === 1) !== essaiMode) setTable(d.te === 1);
       drawPose();
       document.getElementById('px').textContent     = d.x.toFixed(0);
       document.getElementById('py').textContent     = d.y.toFixed(0);

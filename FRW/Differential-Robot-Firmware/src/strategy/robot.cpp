@@ -424,8 +424,8 @@ bool Robot::_obstacleWallFiltered(float dir_rad) {
 
         float wx, wy;
         _lidarToWorld(_scanBuf[i].angle_deg, d, wx, wy);
-        if (wx < TABLE_MARGIN_MM || wx > TABLE_WIDTH_MM  - TABLE_MARGIN_MM) continue;
-        if (wy < TABLE_MARGIN_MM || wy > TABLE_HEIGHT_MM - TABLE_MARGIN_MM) continue;
+        if (wx < TABLE_MARGIN_MM || wx > gTable.w() - TABLE_MARGIN_MM) continue;
+        if (wy < TABLE_MARGIN_MM || wy > gTable.h() - TABLE_MARGIN_MM) continue;
 
         float lidarAngle = (270.0f - _scanBuf[i].angle_deg + gCalib.lidarOffsetDeg) * DEG2RAD;
         float px = d * cosf(lidarAngle);

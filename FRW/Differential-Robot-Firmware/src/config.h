@@ -117,6 +117,16 @@
 #define TABLE_HEIGHT_MM     2000.0f   // axe Y (vertical, vers le bas)
 #define TABLE_MARGIN_MM     100.0f    // épaisseur marge bord (filtre points LIDAR = murs)
 
+// ─── TERRAIN D'ESSAI ─────────────────────────────────────────────────────────
+// Petite table de l'atelier, même repère (origine coin du fond gauche).
+// Activable depuis l'interface (hors match) ; TERRAIN_ESSAI fixe l'état au
+// démarrage. En mode essai : calage puis parking au centre, pas de stratégie.
+#define ESSAI_WIDTH_MM      1000.0f
+#define ESSAI_HEIGHT_MM      700.0f
+#ifndef TERRAIN_ESSAI
+#define TERRAIN_ESSAI       0
+#endif
+
 // ─── ORIENTATIONS CARDINALES (repère table : 0°=Est, 90°=Nord, sens positif=CCW)
 #define ANGLE_NORTH         90.0f
 #define ANGLE_EAST           0.0f

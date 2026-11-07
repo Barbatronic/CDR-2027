@@ -300,8 +300,9 @@ match_start:
     robot.startMatch();
     gDisplay.match_phase = MatchPhase::MATCH;
 
-    if (gDisplay.team == Team::YELLOW) runStrategyYellow(robot);
-    else                               runStrategyBlue(robot);
+    if (gTable.essai) LOG_W("MAIN", "Table d'essai : strategie sautee");
+    else if (gDisplay.team == Team::YELLOW) runStrategyYellow(robot);
+    else                                    runStrategyBlue(robot);
 
     // ── Attente endgame (vérifie aussi RESTART_MATCH) ────────────────────────
     while (!robot.isEndgame() && !robot.isMatchOver()) {
@@ -317,7 +318,7 @@ match_start:
     }
 
     // ── Repli fin de match ────────────────────────────────────────────────────
-    if (!robot.isMatchOver()) {
+    if (!robot.isMatchOver() && !gTable.essai) {
         robot.startNearEnd();
         gDisplay.robot_state = RobotState::ENDGAME;
         gDisplay.match_phase = MatchPhase::ENDGAME;

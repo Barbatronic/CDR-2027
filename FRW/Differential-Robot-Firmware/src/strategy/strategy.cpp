@@ -18,7 +18,7 @@
 //  Repère table : origine coin haut-gauche
 //                X+ = droite (3000 mm), Y+ = bas (2000 mm)
 //                angle 0° = droite (+X), 90° = haut (-Y), sens positif = anti-horaire
-//  Table  : 3000 mm × 2000 mm
+//  Table  : 3000 mm × 2000 mm (table d'essai 1000 × 700 : voir gTable)
 // ═══════════════════════════════════════════════════════════════════════════════
 
 #include "strategy.h"
@@ -79,7 +79,9 @@ void runInitYellow(Robot &robot) {
     robot.goPID(CALAGE_Y_MM - ROBOT_BACK_TO_CENTER_MM);          // dégage
 
     // ── Salle du trône, orienté vers la première carrière ──────────────────
-    robot.gotoXYenc(POI::startYellow, angleVers(POI::startYellow, POI::carriere_01));
+    // (table d'essai : centre de la table, face à l'Est)
+    if (gTable.essai) robot.gotoXYenc(Vec2(gTable.w() * 0.5f, gTable.h() * 0.5f), ANGLE_EAST);
+    else robot.gotoXYenc(POI::startYellow, angleVers(POI::startYellow, POI::carriere_01));
 
     robot.resetSpeed(); // remet les vitesses par défaut pour la stratégie
 }
@@ -93,9 +95,9 @@ void runInitBlue(Robot &robot) {
     robot.setSpeedPct(10);
 
     // ── Calage X — arrière plaqué contre la bordure Est ────────────────────
-    robot.setPosition(TABLE_WIDTH_MM, 0, ANGLE_WEST);
+    robot.setPosition(gTable.w(), 0, ANGLE_WEST);
     robot.goStall(-CALAGE_STALL_MM);
-    robot.setPosition(TABLE_WIDTH_MM - ROBOT_BACK_TO_CENTER_MM, 0, ANGLE_WEST);
+    robot.setPosition(gTable.w() - ROBOT_BACK_TO_CENTER_MM, 0, ANGLE_WEST);
     robot.goPID(CALAGE_X_MM - ROBOT_BACK_TO_CENTER_MM);
 
     // ── Calage Y — arrière plaqué contre la bordure du fond ────────────────
@@ -105,7 +107,9 @@ void runInitBlue(Robot &robot) {
     robot.goPID(CALAGE_Y_MM - ROBOT_BACK_TO_CENTER_MM);
 
     // ── Salle du trône, orienté vers la première carrière ──────────────────
-    robot.gotoXYenc(POI::startBlue, angleVers(POI::startBlue, POI::carriere_04));
+    // (table d'essai : centre de la table, face à l'Ouest)
+    if (gTable.essai) robot.gotoXYenc(Vec2(gTable.w() * 0.5f, gTable.h() * 0.5f), ANGLE_WEST);
+    else robot.gotoXYenc(POI::startBlue, angleVers(POI::startBlue, POI::carriere_04));
 
     robot.resetSpeed();
 }

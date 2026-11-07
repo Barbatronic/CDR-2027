@@ -166,6 +166,23 @@ void LogServer::_handleWsMsg(uint8_t* payload, size_t len) {
     // ── Calibration live ─────────────────────────────────────────────────────
     if (strstr(p, "\"calib\"")) { _handleCalibMsg(p); return; }
 
+    // ── Choix de la table : {"type":"table","essai":1} ───────────────────────
+    // Refusé pendant calage et match : les filtres LIDAR et le calage en
+    // dépendent.
+    if (strstr(p, "\"table\"")) {
+        const char* ep = strstr(p, "\"essai\":");
+        if (!ep) return;
+        MatchPhase ph = gDisplay.match_phase;
+        if (ph != MatchPhase::WAIT_INIT && ph != MatchPhase::DONE) {
+            LOG_W("UI", "Changement de table refuse hors attente init / fin de match");
+            return;
+        }
+        gTable.essai = atoi(ep + 8) != 0;
+        LOG_I("UI", "Table : %s (%.0f x %.0f mm)", gTable.essai ? "essai" : "match",
+              (double)gTable.w(), (double)gTable.h());
+        return;
+    }
+
     // ── Click utilisateur sur le terrain ──────────────────────────────────────
     // Format : {"type":"goto","x":1234,"y":567}        (sans orientation)
     //        : {"type":"goto","x":1234,"y":567,"t":90}  (avec orientation finale)
@@ -311,8 +328,8 @@ void LogServer::updateLidarAbs(const LidarPoint* buf, uint16_t n,
         float wy = robot_y - d * sinf(a);
 
         // Filtre : uniquement les points dans les limites de la table
-        if (wx < 0 || wx > TABLE_WIDTH_MM)  continue;
-        if (wy < 0 || wy > TABLE_HEIGHT_MM) continue;
+        if (wx < 0 || wx > gTable.w()) continue;
+        if (wy < 0 || wy > gTable.h()) continue;
 
         pos += snprintf(local + pos, sizeof(local) - pos, "%s[%d,%d]",
                         first ? "" : ",", (int)wx, (int)wy);
@@ -376,12 +393,13 @@ void LogServer::_loop() {
             snprintf(buf, sizeof(buf),
                      "{\"type\":\"pose\",\"x\":%.1f,\"y\":%.1f,\"a\":%.1f,"
                      "\"state\":\"%s\",\"nd\":%.0f,\"na\":%.1f,\"tm\":\"%c\",\"cc\":%d,"
-                     "\"ph\":%u,\"el\":%lu,\"mo\":%d,\"ml\":%d}",
+                     "\"ph\":%u,\"el\":%lu,\"mo\":%d,\"ml\":%d,\"te\":%d}",
                      (double)_px, (double)_py, (double)_ptheta,
                      _pstate, (double)_navDist, (double)_navDelta, (char)_team,
                      _canClick ? 1 : 0,
                      (unsigned)_phase, (unsigned long)_elapsedMs,
-                     _motorsOn ? 1 : 0, _motorsLocked ? 1 : 0);
+                     _motorsOn ? 1 : 0, _motorsLocked ? 1 : 0,
+                     gTable.essai ? 1 : 0);
             _ws.broadcastTXT(buf);
         }
 
