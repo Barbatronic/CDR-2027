@@ -280,6 +280,35 @@ void Robot::resetSpeed() {
     _motion.setAcceleration(gCalib.defaultAccel);
 }
 
+// ─── Parcours ────────────────────────────────────────────────────────────────
+
+void Robot::setPath(const Vec2* pts, uint8_t n, float arrival_deg, bool backward) {
+    if (n == 0) return;
+    if (n > MotionController::PATH_PTS_MAX) n = MotionController::PATH_PTS_MAX;
+    MotionController::Target t[MotionController::PATH_PTS_MAX];
+    for (uint8_t i = 0; i < n; i++) {
+        t[i].x_mm       = pts[i].x;
+        t[i].y_mm       = pts[i].y;
+        t[i].theta_deg  = (i + 1 == n) ? arrival_deg : NAN;
+        t[i].speed      = _motion.getSpeed();
+        t[i].accel      = _motion.getAcceleration();
+        t[i].stopMm     = gCalib.stopMm;
+        t[i].backward   = backward;
+        t[i].obstacleEn = _obstacleEn;
+    }
+    _motionCtrl.setPath(t, n);
+}
+
+bool Robot::followPath(const Vec2* pts, uint8_t n, float arrival_deg, bool backward) {
+    if (n == 0) return true;
+    if (!_moveAllowed()) return false;
+    gDisplay.robot_state = RobotState::GOTO;
+    setPath(pts, n, arrival_deg, backward);
+    bool ok = waitArrived(0);
+    if (!ok) LOG_W("ROBOT", "Parcours de %u points : non abouti", (unsigned)n);
+    return ok;
+}
+
 // ─── Obstacle (goStall) ───────────────────────────────────────────────────────
 
 // Attend que la direction surveillée se dégage. false = timeout.

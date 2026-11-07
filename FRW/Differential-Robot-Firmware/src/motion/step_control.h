@@ -33,6 +33,11 @@ public:
     bool isLocked()  const      { return _locked; }
     bool isEnabled() const      { return _enabled; }   // sorties EN actives
 
+    // Position des roues motrices d'après les pas émis (mm, + = avant) : sert
+    // à comparer aux roues codeuses (glissement, blocage, pas perdus)
+    float motorMmL() const;
+    float motorMmR() const;
+
     // ── Mise à jour pose depuis les pas ──────────────────────────────────────
     void syncPose();
 

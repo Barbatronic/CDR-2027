@@ -36,6 +36,13 @@ public:
     bool gotoXYenc(float x_mm, float y_mm, float arrival_deg, bool backward = false);
     bool gotoXYenc(Vec2 poi)                                        { return gotoXYenc(poi.x, poi.y); }
     bool gotoXYenc(Vec2 poi, float arrival_deg, bool backward = false) { return gotoXYenc(poi.x, poi.y, arrival_deg, backward); }
+    // Parcours de n points (≤ MotionController::PATH_PTS_MAX) enchaînés sans
+    // arrêt aux points presque alignés ; cap final optionnel au dernier point
+    bool followPath(const Vec2* pts, uint8_t n, float arrival_deg = NAN, bool backward = false);
+    // Même parcours, sans attendre (clic de l'interface)
+    void setPath(const Vec2* pts, uint8_t n, float arrival_deg = NAN, bool backward = false);
+    // Raison du dernier déplacement non abouti (glissement, garde-fou…)
+    MotionController::Fail lastMoveFail() const { return _motionCtrl.lastFail(); }
     void setEncoders(QuadEncoder *l, QuadEncoder *r) { _encLeft = l; _encRight = r; }
 
     // ── Pose ─────────────────────────────────────────────────────────────────

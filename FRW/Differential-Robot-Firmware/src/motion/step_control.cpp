@@ -21,6 +21,12 @@ bool StepControl::begin() {
     _stepR->enableOutputs();
     _enabled = true;
 
+    // Démarrage adouci : depuis l'arrêt, l'accélération monte progressivement
+    // sur les premiers mm au lieu d'arriver d'un coup (glissement, basculement)
+    const uint32_t linSteps = (uint32_t)(STEP_LINEAR_ACCEL_MM * gCalib.stepsPerMm);
+    _stepL->setLinearAcceleration(linSteps);
+    _stepR->setLinearAcceleration(linSteps);
+
     // Drive strength maximale (40 mA) sur tous les pins de commande moteur
     gpio_set_drive_capability((gpio_num_t)STEPPER_L_STEP_PIN, GPIO_DRIVE_CAP_3);
     gpio_set_drive_capability((gpio_num_t)STEPPER_L_DIR_PIN,  GPIO_DRIVE_CAP_3);
@@ -182,6 +188,9 @@ void StepControl::pushAcceleration() {
     _stepL->setAcceleration(a);
     _stepR->setAcceleration(a);
 }
+
+float StepControl::motorMmL() const { return (float)_stepL->getCurrentPosition() / gCalib.stepsPerMm; }
+float StepControl::motorMmR() const { return (float)_stepR->getCurrentPosition() / gCalib.stepsPerMm; }
 
 void StepControl::setStepperAccel(float mmS2) {
     uint32_t a = (uint32_t)(fmaxf(mmS2, 10.0f) * gCalib.stepsPerMm);

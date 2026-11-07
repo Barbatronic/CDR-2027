@@ -189,6 +189,8 @@
 #define MOTION_ACT_LAG_MS      35     // retard commande → mouvement des pas à pas (file de la
                                        // bibliothèque + mécanique, mesuré sur table) : la vitesse
                                        // envoyée est celle du profil à t + ce retard
+#define STEP_LINEAR_ACCEL_MM   2.0f   // démarrage adouci : montée progressive de l'accélération
+                                       // sur ces premiers mm depuis l'arrêt
 #define STEP_MIN_SPEED_MMS     4.0f   // sous cette vitesse : arrêt. Une vitesse plus faible met en
                                        // file un pas très long (1 mm/s → 113 ms) qui retarde
                                        // d'autant la commande suivante
@@ -199,6 +201,13 @@
 #define MOTION_MAX_ERR_MM      50.0f   // garde-fou : écart à la référence au-delà → arrêt
 #define MOTION_MAX_ERR_DEG     20.0f   //   (dérive du centre en rotation : 0,6 × MAX_ERR_MM)
 #define MOTION_MAX_HEADING_DEG 45.0f   //   en ligne droite (> MOTION_BLEND_MAX_DEG)
+#define MOTION_CORNER_MM       50.0f   // point de passage : vitesse limitée pour que le robot
+                                       // avance d'au plus 2 × cette distance pendant le virage
+#define MOTION_SLIP_MM         15.0f   // glissement : écart roue codeuse ↔ pas émis toléré…
+#define MOTION_SLIP_CYCLES     20      // … sur cette fenêtre (cycles de MOTION_PERIOD_MS)
+#define MOTION_W_SLEW           8.0f   // rad/s² : variation maxi de la correction de cap en ligne droite
+#define MOTION_PASS_MAX_DEG    60.0f   // parcours : coin franchi sans arrêt jusqu'à cet angle
+                                       // (virage planifié en roulant ; au-delà, arrêt + rotation)
 #define MOTION_BLEND_MAX_DEG     30.0f // nouvelle cible en roulant : enchaînée sans arrêt si l'écart de cap est sous ce seuil
 
 // ─── DÉTECTION STALL ─────────────────────────────────────────────────────────
