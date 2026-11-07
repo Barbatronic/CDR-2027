@@ -9,6 +9,7 @@
 #include "../config.h"
 #include "../live_config.h"
 #include "../display/oled.h"
+#include "../log.h"
 
 LogServer logServer;
 
@@ -447,6 +448,36 @@ void LogServer::_handleCalibMsg(const char* p) {
     const char* vp = strstr(p, "\"val\":");
     if (!vp || !key[0]) return;
     float val = (float)atof(vp + 6);
+
+    // Plages admises (mêmes bornes que les champs min/max de data/index.html).
+    // Hors plage ou non numérique → refus, et l'UI est resynchronisée.
+    struct Range { const char* key; float lo, hi; };
+    static const Range ranges[] = {
+        {"encWheelDiam",   45.0f,   55.0f}, {"encWheelbase", 170.0f,  210.0f},
+        {"wheelbase",     130.0f,  160.0f}, {"driveWheelDiam", 52.0f,  62.0f},
+        {"lidarOffset",   -15.0f,   15.0f}, {"kp",             0.1f,   10.0f},
+        {"ki",              0.0f,    0.5f}, {"kd",             0.0f,    2.0f},
+        {"iMax",            0.0f,  500.0f}, {"stopMm",         1.0f,   20.0f},
+        {"minSpd",          2.0f,   50.0f}, {"defaultSpeed", 200.0f, 5000.0f},
+        {"defaultAccel",  200.0f, 8000.0f},
+    };
+    const Range* r = nullptr;
+    for (const Range& it : ranges) if (strcmp(key, it.key) == 0) { r = &it; break; }
+    if (!r) return;
+
+    // Pas de changement pendant le calage ni pendant le match : la pose et
+    // l'asservissement en dépendent. Autorisé avant et après le match.
+    MatchPhase ph = gDisplay.match_phase;
+    bool busy = (ph == MatchPhase::CALAGE || ph == MatchPhase::MATCH ||
+                 ph == MatchPhase::ENDGAME);
+    if (busy || !isfinite(val) || val < r->lo || val > r->hi) {
+        if (busy) LOG_W("CALIB", "%s refuse : calage ou match en cours", key);
+        else      LOG_W("CALIB", "%s=%.3f refuse : hors [%.3g, %.3g]", key,
+                        (double)val, (double)r->lo, (double)r->hi);
+        _buildCalibJson();     // renvoie les valeurs réelles → l'UI se corrige
+        _calibNew = true;
+        return;
+    }
 
     if      (strcmp(key, "encWheelDiam")   == 0) {
         gCalib.encWheelDiamMm = val;
