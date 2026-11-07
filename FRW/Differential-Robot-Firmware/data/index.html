@@ -177,6 +177,24 @@ body {
 #radar-stats .rs-val   { color: #e0e0e0; font-size: 13px; font-family: monospace; }
 #radar-stats .rs-val.alert { color: #ff6b6b; }
 
+/* ── Dernier mouvement enregistré (onglet Motion) ── */
+#rec-panel {
+  background: #111; border: 1px solid #333; border-radius: 4px;
+  padding: 8px 12px; display: flex; flex-direction: column; gap: 4px; flex-shrink: 0;
+}
+#rec-hdr {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 12px; font-weight: bold; color: #888; letter-spacing: 1px;
+  padding-bottom: 4px; border-bottom: 1px solid #2a2a2a; margin-bottom: 2px;
+}
+#rec-hdr .tool-btn { font-size: 11px; padding: 2px 8px; }
+#rec-summary { font-size: 12px; color: #ccc; font-family: monospace; line-height: 1.5; }
+#rec-summary .warn { color: #ffa94d; }
+.rec-plot-lbl { font-size: 10px; color: #777; letter-spacing: 1px; margin-top: 4px; }
+.rec-plot-lbl i { font-style: normal; }
+.rec-plot { width: 100%; display: block; background: #0d0d0d; border-radius: 3px; cursor: crosshair; }
+#rec-cursor { font-size: 11px; color: #aaa; font-family: monospace; min-height: 15px; }
+
 /* ── Actionneurs ── */
 #act-panel {
   background: #111; border: 1px solid #333; border-radius: 4px; overflow: hidden;
@@ -300,6 +318,7 @@ body {
     <div id="field-toolbar">
       <span class="toolbar-lbl">TERRAIN</span>
       <button class="tool-btn" id="lidar-abs-btn" onclick="toggleLidarAbs()">&#x25CF; LIDAR terrain</button>
+      <button class="tool-btn" id="trail-btn" onclick="toggleTrail()" title="Trace des positions passées (clic droit : effacer)" oncontextmenu="clearTrail();return false;">&#x3030; Trace</button>
       <button class="tool-btn" id="table-btn" onclick="toggleTable()" title="Bascule table de match / table d'essai (hors match)">&#x25A6; Table de match</button>
       <span style="margin-left:auto;font-size:11px;color:#666;">
         &#x1F5B1; <b id="cursor-coord" style="color:#888">—</b>
@@ -383,6 +402,31 @@ body {
               <div class="rs-val" id="rs-back">— mm</div>
             </div>
           </div>
+        </div>
+
+        <div id="rec-panel">
+          <div id="rec-hdr">
+            <span>DERNIER MOUVEMENT</span>
+            <span>
+              <button class="tool-btn" onclick="recRequest()" title="Redemander le dernier mouvement au robot">&#x21BB;</button>
+              <button class="tool-btn" id="rec-csv-btn" onclick="recExportCsv()" disabled title="Télécharger le mouvement en CSV">CSV</button>
+            </span>
+          </div>
+          <div id="rec-summary">Aucun mouvement enregistré</div>
+          <div class="rec-plot-lbl">VITESSES ROUES (mm/s) —
+            <i style="color:#4dabf7">G</i> / <i style="color:#ff922b">D</i> :
+            pointillé = commandée, plein = mesurée</div>
+          <canvas class="rec-plot" id="rec-speed" height="150"></canvas>
+          <div class="rec-plot-lbl">ERREUR DISTANCE (mm) — <i style="color:#69db7c">restant à parcourir</i></div>
+          <canvas class="rec-plot" id="rec-errd" height="90"></canvas>
+          <div class="rec-plot-lbl">ERREUR ANGLE (°) — <i style="color:#e599f7">positif = reste à tourner à gauche</i></div>
+          <canvas class="rec-plot" id="rec-erra" height="90"></canvas>
+          <div class="rec-plot-lbl">Fond :
+            <i style="color:#74c0fc">ALIGN</i> ·
+            <i style="color:#aaa">TRANSLATE</i> ·
+            <i style="color:#e599f7">FINAL_TURN</i> ·
+            <i style="color:#ff6b6b">OBSTACLE</i></div>
+          <div id="rec-cursor"></div>
         </div>
       </div>
 
@@ -541,7 +585,9 @@ let CVS_W = 900, CVS_H = 600;
 let SX = CVS_W / FIELD_W_MM, SY = CVS_H / FIELD_H_MM;   // 0.3 px/mm en match
 let essaiMode = false;
 const ESSAI_W_MM = 1000, ESSAI_H_MM = 700;
-const ROBOT_R_MM = 140;   // rayon d'encombrement, dessiné à l'échelle sur l'essai
+// Emprise du robot autour de l'axe des roues (config.h ROBOT_*_TO_CENTER_MM,
+// largeur 232 mm confirmée en novembre 2026)
+const ROBOT_FRONT_MM = 80.9, ROBOT_BACK_MM = 134.82, ROBOT_WIDTH_MM = 232;
 
 // ── Constantes radar ────────────────────────────────────────────────────────
 const RDR_CX = 100, RDR_CY = 100, RDR_R = 90;    // centre et rayon du radar (px)
@@ -1021,6 +1067,24 @@ function drawPose() {
     }
   }
 
+  // Trace des positions passées (pose 5 Hz) et chemin du dernier mouvement (50 Hz)
+  if (showTrail && trail.length > 1) {
+    ctx.beginPath();
+    ctx.moveTo(trail[0][0] * SX, trail[0][1] * SY);
+    for (const [x, y] of trail) ctx.lineTo(x * SX, y * SY);
+    ctx.strokeStyle = 'rgba(255,212,59,0.55)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
+  if (showTrail && rec && rec.rows.length > 1) {
+    ctx.beginPath();
+    ctx.moveTo(rec.rows[0].x * SX, rec.rows[0].y * SY);
+    for (const r of rec.rows) ctx.lineTo(r.x * SX, r.y * SY);
+    ctx.strokeStyle = 'rgba(77,171,247,0.9)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+
   // Preview pendant le drag (cible + flèche orientation)
   if (dragState) {
     const sx = dragState.sx * SX, sy = dragState.sy * SY;
@@ -1117,13 +1181,22 @@ function drawPose() {
   const py  = pose.y * SY;
   const rad = pose.a * Math.PI / 180;
 
-  // Encombrement réel du robot (table d'essai seulement, lisible à cette échelle)
-  if (essaiMode) {
+  // Emprise réelle du robot : rectangle avant / arrière / largeur, à l'échelle
+  {
+    const c = Math.cos(rad), s = Math.sin(rad), hw = ROBOT_WIDTH_MM / 2;
+    const corners = [[ROBOT_FRONT_MM, hw], [ROBOT_FRONT_MM, -hw],
+                     [-ROBOT_BACK_MM, -hw], [-ROBOT_BACK_MM, hw]];
     ctx.beginPath();
-    ctx.arc(px, py, ROBOT_R_MM * SX, 0, 2 * Math.PI);
+    corners.forEach(([f, l], i) => {
+      // f vers l'avant, l vers la gauche ; Y canvas vers le bas
+      const wx = pose.x + f * c - l * s;
+      const wy = pose.y - (f * s + l * c);
+      if (i === 0) ctx.moveTo(wx * SX, wy * SY); else ctx.lineTo(wx * SX, wy * SY);
+    });
+    ctx.closePath();
     ctx.fillStyle = 'rgba(255,80,80,0.15)';
     ctx.fill();
-    ctx.strokeStyle = 'rgba(255,80,80,0.7)';
+    ctx.strokeStyle = 'rgba(255,80,80,0.75)';
     ctx.lineWidth = 1.5;
     ctx.stroke();
   }
@@ -1179,6 +1252,7 @@ function connect() {
     if (d.type === 'pose') {
       pose = d;
       if (d.te !== undefined && (d.te === 1) !== essaiMode) setTable(d.te === 1);
+      trailPush(d.x, d.y);
       drawPose();
       document.getElementById('px').textContent     = d.x.toFixed(0);
       document.getElementById('py').textContent     = d.y.toFixed(0);
@@ -1213,6 +1287,9 @@ function connect() {
     } else if (d.type === 'calib_state') {
       updateCalibUI(d);
 
+    } else if (d.type === 'rec') {
+      onRecChunk(d);
+
     } else if (d.type === 'motion') {
       motion = d;
       updateStatusBar();
@@ -1228,6 +1305,175 @@ function connect() {
         document.getElementById('logs').childElementCount + ' / ' + logs.length + ' logs';
     }
   };
+}
+
+// ── Trace des positions passées sur le terrain ─────────────────────────────
+let showTrail = true;
+let trail = [];               // [[x, y], ...] mm, depuis les messages pose
+const TRAIL_MAX = 3000;
+
+function trailPush(x, y) {
+  const last = trail[trail.length - 1];
+  if (last && Math.hypot(x - last[0], y - last[1]) < 2) return;   // immobile
+  trail.push([x, y]);
+  if (trail.length > TRAIL_MAX) trail.splice(0, trail.length - TRAIL_MAX);
+}
+function toggleTrail() {
+  showTrail = !showTrail;
+  document.getElementById('trail-btn').classList.toggle('active', showTrail);
+  drawPose();
+}
+function clearTrail() { trail = []; drawPose(); }
+
+// ── Dernier mouvement enregistré (firmware : motion/recorder.h) ────────────
+// Blocs {type:'rec', g, i, n, tr, d:[[t,st,ph,x,y,th,cmdL,cmdR,vL,vR,errD,errA,cap]]}
+// réassemblés par g ; un enregistrement incomplet est ignoré.
+const REC_PHASE_BG = {1: 'rgba(116,192,252,0.10)', 3: 'rgba(229,153,247,0.12)'};
+let recAsm = null;            // en cours de réception
+let rec    = null;            // dernier complet : {g, tr, rows:[{t,st,ph,...}]}
+let recCursorT = null;        // instant survolé (ms) ou null
+
+function onRecChunk(d) {
+  if (d.i === 0) recAsm = {g: d.g, n: d.n, tr: d.tr, rows: new Array(d.n), got: 0};
+  if (!recAsm || recAsm.g !== d.g) return;
+  d.d.forEach((a, k) => {
+    recAsm.rows[d.i + k] = {t: a[0], st: a[1], ph: a[2], x: a[3], y: a[4], th: a[5] / 10,
+      cmdL: a[6], cmdR: a[7], vL: a[8], vR: a[9], errD: a[10] / 10, errA: a[11] / 100, cap: a[12]};
+  });
+  recAsm.got += d.d.length;
+  if (recAsm.got < recAsm.n) return;
+  rec = {g: recAsm.g, tr: recAsm.tr, rows: recAsm.rows};
+  recAsm = null;
+  recCursorT = null;
+  document.getElementById('rec-csv-btn').disabled = false;
+  updateRecSummary();
+  drawRecPlots();
+  drawPose();
+}
+
+function recRequest() {
+  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({type: 'rec_req'}));
+}
+
+function updateRecSummary() {
+  const r = rec.rows, last = r[r.length - 1];
+  const vmax = Math.max(...r.map(o => Math.max(Math.abs(o.vL), Math.abs(o.vR))));
+  const dist = r.reduce((acc, o, i) => i ? acc + Math.hypot(o.x - r[i-1].x, o.y - r[i-1].y) : 0, 0);
+  const obst = r.some(o => o.st === 3);
+  document.getElementById('rec-summary').innerHTML =
+    `Durée ${(last.t / 1000).toFixed(2)} s · ${r.length} points · parcouru ${dist.toFixed(0)} mm<br>` +
+    `v max mesurée ${vmax.toFixed(0)} mm/s · résidu final ${last.errD.toFixed(1)} mm / ${last.errA.toFixed(2)}°` +
+    (obst ? '<br><span class="warn">obstacle rencontré</span>' : '') +
+    (rec.tr ? '<br><span class="warn">tronqué à 20 s</span>' : '');
+}
+
+// Trace un graphe temporel : séries [{key, color, dash}], fond par phase
+function drawRecPlot(id, series, unit) {
+  const cv = document.getElementById(id);
+  const dpr = window.devicePixelRatio || 1;
+  const W = cv.clientWidth, H = cv.clientHeight;
+  cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+  const g = cv.getContext('2d');
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.clearRect(0, 0, W, H);
+  if (!rec) return;
+  const r = rec.rows, tMax = Math.max(r[r.length - 1].t, 1);
+  const L = 40, R = 6, T = 6, B = 16;               // marges (px)
+  let lo = 0, hi = 0;
+  for (const o of r) for (const s of series) { lo = Math.min(lo, o[s.key]); hi = Math.max(hi, o[s.key]); }
+  if (hi - lo < 1e-6) { hi += 1; lo -= 1; }
+  const pad = (hi - lo) * 0.08; hi += pad; lo -= pad;
+  const X = t => L + (W - L - R) * t / tMax;
+  const Y = v => T + (H - T - B) * (hi - v) / (hi - lo);
+
+  // Fond : phases et obstacle
+  for (let i = 0; i < r.length - 1; i++) {
+    const bg = r[i].st === 3 ? 'rgba(255,107,107,0.18)' : REC_PHASE_BG[r[i].ph];
+    if (!bg) continue;
+    g.fillStyle = bg;
+    g.fillRect(X(r[i].t), T, X(r[i + 1].t) - X(r[i].t) + 0.5, H - T - B);
+  }
+  // Axes : zéro, bornes, temps
+  g.font = '10px monospace'; g.fillStyle = '#777'; g.textBaseline = 'middle';
+  g.strokeStyle = '#333'; g.lineWidth = 1;
+  g.beginPath(); g.moveTo(L, Y(0) + 0.5); g.lineTo(W - R, Y(0) + 0.5); g.stroke();
+  g.textAlign = 'right';
+  g.fillText(hi.toFixed(hi - lo < 10 ? 1 : 0), L - 4, T + 4);
+  g.fillText('0', L - 4, Y(0));
+  g.fillText(lo.toFixed(hi - lo < 10 ? 1 : 0), L - 4, H - B - 4);
+  g.textAlign = 'center'; g.textBaseline = 'top';
+  const step = tMax > 8000 ? 2000 : tMax > 3000 ? 1000 : tMax > 1200 ? 500 : 200;
+  for (let t = 0; t <= tMax; t += step) {
+    g.fillStyle = '#666';
+    g.fillText((t / 1000).toFixed(step < 1000 ? 1 : 0) + 's', X(t), H - B + 3);
+    g.strokeStyle = '#222';
+    g.beginPath(); g.moveTo(X(t) + 0.5, T); g.lineTo(X(t) + 0.5, H - B); g.stroke();
+  }
+  // Séries
+  for (const s of series) {
+    g.beginPath();
+    r.forEach((o, i) => { if (i) g.lineTo(X(o.t), Y(o[s.key])); else g.moveTo(X(o.t), Y(o[s.key])); });
+    g.strokeStyle = s.color; g.lineWidth = s.dash ? 1 : 1.5;
+    g.setLineDash(s.dash ? [4, 3] : []);
+    g.stroke();
+  }
+  g.setLineDash([]);
+  // Curseur
+  if (recCursorT !== null) {
+    g.strokeStyle = 'rgba(255,255,255,0.5)';
+    g.beginPath(); g.moveTo(X(recCursorT) + 0.5, T); g.lineTo(X(recCursorT) + 0.5, H - B); g.stroke();
+  }
+  cv._recX = {L, R, W, tMax};   // pour la conversion souris → temps
+}
+
+function drawRecPlots() {
+  drawRecPlot('rec-speed', [
+    {key: 'cmdL', color: '#4dabf7', dash: true}, {key: 'cmdR', color: '#ff922b', dash: true},
+    {key: 'vL',   color: '#4dabf7'},             {key: 'vR',   color: '#ff922b'}]);
+  drawRecPlot('rec-errd', [{key: 'errD', color: '#69db7c'}]);
+  drawRecPlot('rec-erra', [{key: 'errA', color: '#e599f7'}]);
+}
+
+// Survol d'un graphe : ligne verticale sur les trois et valeurs à cet instant
+const PHASE_NAMES = ['—', 'ALIGN', 'TRANSLATE', 'FINAL_TURN'];
+['rec-speed', 'rec-errd', 'rec-erra'].forEach(id => {
+  const cv = document.getElementById(id);
+  cv.addEventListener('mousemove', e => {
+    if (!rec || !cv._recX) return;
+    const {L, R, W, tMax} = cv._recX;
+    const t = (e.clientX - cv.getBoundingClientRect().left - L) / (W - L - R) * tMax;
+    let best = rec.rows[0];
+    for (const o of rec.rows) if (Math.abs(o.t - t) < Math.abs(best.t - t)) best = o;
+    recCursorT = best.t;
+    document.getElementById('rec-cursor').textContent =
+      `t=${(best.t / 1000).toFixed(2)}s ${best.st === 3 ? 'OBSTACLE' : PHASE_NAMES[best.ph] || '?'} · ` +
+      `G ${best.cmdL}/${best.vL} D ${best.cmdR}/${best.vR} mm/s · ` +
+      `${best.errD.toFixed(1)} mm · ${best.errA.toFixed(2)}°`;
+    drawRecPlots();
+  });
+  cv.addEventListener('mouseleave', () => {
+    recCursorT = null;
+    document.getElementById('rec-cursor').textContent = '';
+    drawRecPlots();
+  });
+});
+window.addEventListener('resize', () => { if (rec) drawRecPlots(); });
+
+// Export CSV (séparateur virgule, point décimal)
+function recExportCsv() {
+  if (!rec) return;
+  const head = 't_ms,etat,phase,x_mm,y_mm,cap_deg,cmd_g_mms,cmd_d_mms,v_g_mms,v_d_mms,' +
+               'err_dist_mm,err_angle_deg,plafond_mms';
+  const lines = rec.rows.map(o => [o.t, o.st, o.ph, o.x, o.y, o.th, o.cmdL, o.cmdR,
+                                   o.vL, o.vR, o.errD, o.errA, o.cap].join(','));
+  const blob = new Blob([head + '\n' + lines.join('\n') + '\n'], {type: 'text/csv'});
+  const a = document.createElement('a');
+  const d = new Date(), z = n => String(n).padStart(2, '0');
+  a.download = `mouvement_${d.getFullYear()}${z(d.getMonth() + 1)}${z(d.getDate())}_` +
+               `${z(d.getHours())}${z(d.getMinutes())}${z(d.getSeconds())}.csv`;
+  a.href = URL.createObjectURL(blob);
+  a.click();
+  URL.revokeObjectURL(a.href);
 }
 
 // ── Radar timeout — grise si pas de données depuis >2s ─────────────────────
@@ -1376,6 +1622,7 @@ function switchTab(name) {
   document.querySelectorAll('.tab-pane').forEach(p => {
     p.classList.toggle('active', p.id === 'tab-' + name);
   });
+  if (name === 'motion' && rec) drawRecPlots();   // graphes tracés à 0 px si onglet caché
 }
 
 function sendCalib(key, val) {
