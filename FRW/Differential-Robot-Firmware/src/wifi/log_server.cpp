@@ -79,6 +79,23 @@ bool LogServer::pollFieldClick(float& x_mm, float& y_mm, float& theta_deg) {
 
 bool wifiLogHasClient() { return logServer.clientCount() > 0; }
 
+bool wifiPollPath(float* xs, float* ys, uint8_t& n, float& theta_deg) {
+    return logServer.pollPath(xs, ys, n, theta_deg);
+}
+
+bool LogServer::pollPath(float* xs, float* ys, uint8_t& n, float& theta_deg) {
+    portENTER_CRITICAL(&_mux);
+    const bool pending = _pathPending;
+    if (pending) {
+        n = _pathN;
+        for (uint8_t i = 0; i < n; i++) { xs[i] = _pathX[i]; ys[i] = _pathY[i]; }
+        theta_deg = _pathTheta;
+        _pathPending = false;
+    }
+    portEXIT_CRITICAL(&_mux);
+    return pending;
+}
+
 bool wifiPollCmd(ServoCmd& out) {
     return logServer.pollCmd(out);
 }
@@ -261,6 +278,34 @@ void LogServer::_handleWsMsg(uint8_t* payload, size_t len) {
         gTable.essai = atoi(ep + 8) != 0;
         LOG_I("UI", "Table : %s (%.0f x %.0f mm)", gTable.essai ? "essai" : "match",
               (double)gTable.w(), (double)gTable.h());
+        return;
+    }
+
+    // ── Parcours cliqué : {"type":"path","pts":[[x,y],...],"t":90} ───────────
+    if (strstr(p, "\"path\"")) {
+        const char* q = strstr(p, "\"pts\":[");
+        if (!q) return;
+        q += 7;
+        float xs[8], ys[8];
+        uint8_t n = 0;
+        while (n < 8) {
+            const char* o = strchr(q, '[');
+            const char* end = strchr(q, ']');
+            if (!o || !end || o > end) break;     // plus de couple [x,y]
+            char* e1;
+            xs[n] = strtof(o + 1, &e1);
+            if (*e1 != ',') break;
+            ys[n] = strtof(e1 + 1, nullptr);
+            n++;
+            q = strchr(o, ']') + 1;
+        }
+        const char* tp = strstr(p, "\"t\":");
+        const float t = tp ? (float)atof(tp + 4) : NAN;
+        if (n == 0) return;
+        portENTER_CRITICAL(&_mux);
+        for (uint8_t i = 0; i < n; i++) { _pathX[i] = xs[i]; _pathY[i] = ys[i]; }
+        _pathN = n; _pathTheta = t; _pathPending = true;
+        portEXIT_CRITICAL(&_mux);
         return;
     }
 

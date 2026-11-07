@@ -353,6 +353,9 @@ body {
       <span class="toolbar-lbl">TERRAIN</span>
       <button class="tool-btn" id="lidar-abs-btn" onclick="toggleLidarAbs()">&#x25CF; LIDAR terrain</button>
       <button class="tool-btn" id="trail-btn" onclick="toggleTrail()" title="Trace des positions passées (clic droit : effacer)" oncontextmenu="clearTrail();return false;">&#x3030; Trace</button>
+      <button class="tool-btn" id="path-btn" onclick="togglePathMode()" title="Mode parcours : chaque clic ajoute un point (8 au plus), glisser sur le dernier donne le cap final">&#x2933; Parcours</button>
+      <button class="tool-btn" id="path-send" onclick="sendPath()" style="display:none" disabled>Envoyer (0)</button>
+      <button class="tool-btn" id="path-clear" onclick="clearPath()" style="display:none" title="Effacer les points">&#x2715;</button>
       <button class="tool-btn" id="table-btn" onclick="toggleTable()" title="Bascule table de match / table d'essai (hors match)">&#x25A6; Table de match</button>
       <span style="margin-left:auto;font-size:11px;color:#666;">
         &#x1F5B1; <b id="cursor-coord" style="color:#888">—</b>
@@ -1160,7 +1163,11 @@ function dragEnd(cx, cy) {
     const ddy = dragState.my - dragState.sy;
     msg.t = Math.round(Math.atan2(-ddy, ddx) * 180 / Math.PI);
   }
-  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
+  if (pathMode) {
+    // Mode parcours : le clic ajoute un point au lieu de partir
+    if (pathPts.length < PATH_MAX_PTS) pathPts.push({x: msg.x, y: msg.y, t: msg.t});
+    updatePathUi();
+  } else if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
   clickFlash = {x:dragState.sx, y:dragState.sy, t0:Date.now()};
   dragState = null;
   drawPose();
@@ -1170,6 +1177,39 @@ function dragEnd(cx, cy) {
 window.addEventListener('blur', () => {
   if (dragState) { dragState = null; drawPose(); }
 });
+
+// ── Mode parcours : points cliqués puis envoyés d'un bloc ──────────────────
+const PATH_MAX_PTS = 8;
+let pathMode = false;
+let pathPts  = [];           // [{x, y, t?}] mm ; t du dernier = cap final
+
+function togglePathMode() {
+  pathMode = !pathMode;
+  if (!pathMode) pathPts = [];
+  updatePathUi();
+}
+
+function clearPath() { pathPts = []; updatePathUi(); }
+
+function updatePathUi() {
+  document.getElementById('path-btn').classList.toggle('active', pathMode);
+  const send = document.getElementById('path-send');
+  send.style.display = pathMode ? '' : 'none';
+  document.getElementById('path-clear').style.display = pathMode ? '' : 'none';
+  send.textContent = 'Envoyer (' + pathPts.length + ')';
+  send.disabled = pathPts.length === 0;
+  drawPose();
+}
+
+function sendPath() {
+  if (!pathPts.length || !ws || ws.readyState !== WebSocket.OPEN) return;
+  const msg = {type: 'path', pts: pathPts.map(p => [p.x, p.y])};
+  const last = pathPts[pathPts.length - 1];
+  if (last.t !== undefined) msg.t = last.t;
+  ws.send(JSON.stringify(msg));
+  pathPts = [];
+  updatePathUi();
+}
 
 // ── Motion debug panel ─────────────────────────────────────────────────────
 function updateMotionPanel() {
@@ -1292,6 +1332,25 @@ function drawPose() {
     } else {
       clickFlash = null;
     }
+  }
+
+  // Parcours en préparation : ligne depuis le robot, points numérotés
+  if (pathPts.length) {
+    ctx.strokeStyle = 'rgba(255,212,59,0.8)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 4]);
+    ctx.beginPath();
+    ctx.moveTo(pose.x * SX, pose.y * SY);
+    for (const p of pathPts) ctx.lineTo(p.x * SX, p.y * SY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.font = 'bold 11px monospace';
+    pathPts.forEach((p, i) => {
+      ctx.fillStyle = 'rgba(255,212,59,0.95)';
+      ctx.beginPath(); ctx.arc(p.x * SX, p.y * SY, 8, 0, 2 * Math.PI); ctx.fill();
+      ctx.fillStyle = '#111';
+      ctx.fillText(String(i + 1), p.x * SX - 3.5, p.y * SY + 4);
+    });
   }
 
   // Marqueur cible — visible si state != IDLE

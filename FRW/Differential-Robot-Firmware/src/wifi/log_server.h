@@ -48,6 +48,8 @@ public:
                       float tgtX, float tgtY, float tgtTheta);
     bool pollCmd(ServoCmd& out);
     bool pollFieldClick(float& x_mm, float& y_mm, float& theta_deg);
+    // Parcours cliqué dans l'interface (mode Parcours) : n ≤ 8 points
+    bool pollPath(float* xs, float* ys, uint8_t& n, float& theta_deg);
     // Nombre de pages connectées : sans client, inutile de construire les
     // trames LIDAR (main.cpp)
     uint8_t clientCount() const { return _clients; }
@@ -109,6 +111,12 @@ private:
     volatile bool  _fcHasTheta{false};
     volatile bool  _fcPending{false};
 
+    // Parcours cliqué (8 points max), même protection que le clic simple
+    float          _pathX[8]{}, _pathY[8]{};
+    uint8_t        _pathN{0};
+    float          _pathTheta{NAN};
+    volatile bool  _pathPending{false};
+
     // Calibration
     char          _calibJson[512];
     volatile bool _calibNew{false};
@@ -149,6 +157,8 @@ bool wifiLogHasClient();
 // attente (et remet le flag à false). x/y en mm coordonnées table.
 // theta_deg = NAN si pas de contrainte orientation (click sans drag).
 bool wifiPollFieldClick(float& x_mm, float& y_mm, float& theta_deg);
+// Parcours cliqué : xs/ys de 8 places ; theta_deg = NAN sans cap final
+bool wifiPollPath(float* xs, float* ys, uint8_t& n, float& theta_deg);
 
 #else
 
@@ -167,5 +177,6 @@ struct ServoCmd { char id[24]; float val; };
 inline bool wifiPollCmd(ServoCmd&) { return false; }
 inline bool wifiLogHasClient() { return false; }
 inline bool wifiPollFieldClick(float&, float&, float&) { return false; }
+inline bool wifiPollPath(float*, float*, uint8_t&, float&) { return false; }
 
 #endif // WIFI_LOG_ENABLED

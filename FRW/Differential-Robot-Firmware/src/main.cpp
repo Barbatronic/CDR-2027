@@ -502,6 +502,34 @@ void loop() {
         }
     }
 
+    // Parcours cliqué (mode Parcours de l'interface) : mêmes conditions, chaque
+    // point doit être dans la table
+    float pxs[8], pys[8], pTheta;
+    uint8_t pn = 0;
+    if (wifiPollPath(pxs, pys, pn, pTheta)) {
+        RobotState st = gDisplay.robot_state;
+        bool postInit = (st != RobotState::WAIT_INIT) && (st != RobotState::INIT);
+        bool inMatch  = (gDisplay.match_start_ms > 0) &&
+                        (millis() - gDisplay.match_start_ms < MATCH_DURATION_MS);
+        const float m = ROBOT_WIDTH_MM * 0.5f;
+        bool inTable = true;
+        Vec2 pts[8];
+        for (uint8_t i = 0; i < pn; i++) {
+            inTable &= pxs[i] >= m && pxs[i] <= gTable.w() - m &&
+                       pys[i] >= m && pys[i] <= gTable.h() - m;
+            pts[i] = Vec2(pxs[i], pys[i]);
+        }
+        if (!inTable) {
+            LOG_W("UI", "Parcours refuse : un point hors table (marge %.0f mm)", (double)m);
+        } else if (postInit && !inMatch) {
+            robot.enableMotors();
+            robot.setPath(pts, pn, pTheta);
+            LOG_I("UI", "Parcours de %u points", (unsigned)pn);
+        } else {
+            LOG_W("UI", "Parcours ignore (etat %d, inMatch=%d)", (int)st, (int)inMatch);
+        }
+    }
+
     // Commandes actionneurs depuis l'interface web (seulement avant init)
     ServoCmd cmd;
     while (wifiPollCmd(cmd)) {
