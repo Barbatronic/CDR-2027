@@ -271,9 +271,12 @@ void LogServer::updateLidar(const LidarPoint* buf, uint16_t n) {
         if (buf[i].distance_mm < (uint16_t)LIDAR_BODY_DIST_MM)     continue;
         if (buf[i].distance_mm > 3000)                              continue;
         if (pos >= (int)sizeof(local) - 20)                         break;
+        // Angle en repère ROBOT (0° = avant, 90° = gauche, sens CCW), même
+        // conversion que la détection d'obstacle : 270° − brut + offset calib.
+        float rDeg = fmodf(270.0f - buf[i].angle_deg + gCalib.lidarOffsetDeg + 720.0f, 360.0f);
         pos += snprintf(local + pos, sizeof(local) - pos, "%s[%d,%d]",
                         first ? "" : ",",
-                        (int)buf[i].angle_deg, (int)buf[i].distance_mm);
+                        (int)(rDeg + 0.5f) % 360, (int)buf[i].distance_mm);
         first = false;
     }
     pos += snprintf(local + pos, sizeof(local) - pos, "]}");

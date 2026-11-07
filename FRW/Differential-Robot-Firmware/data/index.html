@@ -635,8 +635,9 @@ function esc(s) {
 }
 
 // ── Radar LIDAR ────────────────────────────────────────────────────────────
-// Convention après correction : 0°(avant)=droite, 90°(gauche robot)=bas
-// Formule : px = cx + cos(a)*d,  py = cy + sin(a)*d
+// Le firmware envoie l'angle en repère ROBOT : 0° = avant, 90° = gauche,
+// 180° = arrière, 270° = droite (offset LIDAR de calibration inclus).
+// Affichage : avant en haut, gauche à gauche → px = cx − sin(a)*d, py = cy − cos(a)*d
 function drawRadar(pts) {
   rdrCtx.clearRect(0, 0, 200, 200);
 
@@ -684,13 +685,13 @@ function drawRadar(pts) {
   rdrCtx.arc(RDR_CX, RDR_CY, RDR_R, 0, 2 * Math.PI);
   rdrCtx.stroke();
 
-  // Points LIDAR — px = cx + cos(a)*d, py = cy + sin(a)*d
+  // Points LIDAR (angle a en repère robot, voir convention ci-dessus)
   let closest = Infinity, frontDist = Infinity, backDist = Infinity;
   for (const [a, d] of pts) {
     const rad = a * Math.PI / 180;
     const dpx = d * RDR_SCALE;
-    const px  = RDR_CX + Math.cos(rad) * dpx;
-    const py  = RDR_CY + Math.sin(rad) * dpx;
+    const px  = RDR_CX - Math.sin(rad) * dpx;
+    const py  = RDR_CY - Math.cos(rad) * dpx;
     // Clip au cercle
     const dx = px - RDR_CX, dy = py - RDR_CY;
     if (dx * dx + dy * dy > RDR_R * RDR_R) continue;
