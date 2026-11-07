@@ -33,6 +33,18 @@ static inline const char* robotStateStr(RobotState s) {
     }
 }
 
+// Phase du match, distincte de robot_state (qui suit aussi les mouvements :
+// AVANCE, TOURNE...). Écrite par taskStrategy, envoyée à l'interface web.
+enum class MatchPhase : uint8_t {
+    WAIT_INIT,        // pré-match : attente appui bouton init
+    CALAGE,           // calage bordure en cours
+    WAIT_TIRETTE_IN,  // calage fait, attente insertion tirette
+    READY,            // tirette en place : le retrait lance le match
+    MATCH,            // match en cours
+    ENDGAME,          // repli fin de match
+    DONE,             // match terminé
+};
+
 // Données partagées entre les tâches et l'écran.
 // Écriture atomique (types 32 bits alignés sur ESP32).
 struct DisplayData {
@@ -40,6 +52,7 @@ struct DisplayData {
     volatile float      pose_y_mm;
     volatile float      pose_theta_deg;
     volatile RobotState robot_state;
+    volatile MatchPhase match_phase;
     volatile Team       team;
     volatile float      lidar_rpm;
     volatile uint16_t   lidar_pts;

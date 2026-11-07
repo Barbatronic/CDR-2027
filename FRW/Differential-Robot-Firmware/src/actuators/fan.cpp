@@ -1,6 +1,8 @@
 #include "fan.h"
 #include <Arduino.h>
 
+volatile bool PwmFan::_locked = false;
+
 PwmFan::PwmFan(uint8_t pin, uint8_t ledcChannel, uint32_t freqHz)
     : _pin(pin), _ch(ledcChannel), _freqHz(freqHz) {}
 
@@ -13,6 +15,7 @@ void PwmFan::begin() {
 void PwmFan::setSpeed(float pct) {
     if (pct > 100.0f) pct = 100.0f;
     if (pct <   0.0f) pct =   0.0f;
+    if (_locked)      pct =   0.0f;
     _speedPct = pct;
 
     constexpr uint32_t MAX_DUTY = (1u << RES_BITS) - 1;

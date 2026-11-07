@@ -24,7 +24,12 @@ public:
     void stop();                            // arrêt immédiat (force)
     void softStop(float accelOverride = 0); // arrêt avec décélération
     void disableMotors();
-    void enableMotors();
+    void enableMotors();                    // sans effet tant que verrouillé
+    // Verrou posé par le chrono de match à 100 s : les moteurs restent coupés
+    // quoi que demande la stratégie, jusqu'à la relance d'un match.
+    void setLocked(bool locked) { _locked = locked; }
+    bool isLocked()  const      { return _locked; }
+    bool isEnabled() const      { return _enabled; }   // sorties EN actives
 
     // ── Mise à jour pose depuis les pas ──────────────────────────────────────
     void syncPose();
@@ -52,6 +57,8 @@ private:
     float   _speed = DEFAULT_SPEED_MMS;
     float   _accel = DEFAULT_ACCEL_MMS2;
     int32_t _refL = 0, _refR = 0;
+    volatile bool _locked  = false;
+    volatile bool _enabled = false;
 
     void     _applySpeed();
     void     _waitDone();

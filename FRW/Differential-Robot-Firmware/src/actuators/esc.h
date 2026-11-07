@@ -23,8 +23,14 @@ public:
 
     void  detach();               // coupe le signal PWM (ESC en failsafe)
 
+    // Verrou commun à tous les ESC : verrouillés, toute consigne devient 0 %.
+    // Posé par le chrono de match à 100 s, levé à la relance d'un match.
+    static void setLocked(bool locked) { _locked = locked; }
+    static bool isLocked()             { return _locked; }
+
 private:
     PCA9685  &_pca;
     EscConfig _cfg;
     float     _speedPct = 0.0f;
+    static volatile bool _locked;
 };

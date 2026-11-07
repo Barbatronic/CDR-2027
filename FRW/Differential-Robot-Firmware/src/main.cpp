@@ -98,8 +98,107 @@ static void taskLidar(void *) {
 
 QueueHandle_t gStateCmd = nullptr;
 
+// Demandes d'arrêt traitées par taskMatchGuard, y compris pendant la stratégie
+// (la file gStateCmd n'est lue qu'avant et après runStrategy*()).
+static volatile bool sStopMotorsReq   = false;
+static volatile bool sEnableMotorsReq = false;
+
 void sendStateCmd(StateCmd cmd) {
+    // Appelé depuis la tâche WiFi : les arrêts sont délégués à taskMatchGuard
+    // (Core 1), qui ne s'exécute jamais en même temps que motion / stratégie.
+    if (cmd == StateCmd::STOP_MOTORS)   { sStopMotorsReq = true; sEnableMotorsReq = false; }
+    if (cmd == StateCmd::ENABLE_MOTORS) { sEnableMotorsReq = true; sStopMotorsReq = false; }
+    if (cmd == StateCmd::STOP_MATCH && gDisplay.match_start_ms > 0) {
+        uint32_t forced = millis() - MATCH_DURATION_MS;
+        gDisplay.match_start_ms = forced ? forced : 1;   // 0 = « pas de match »
+    }
     if (gStateCmd) xQueueSend(gStateCmd, &cmd, 0);
+}
+
+// ─── Tâche chrono de match (Core 1, prio 5) ──────────────────────────────────
+// Garantit l'arrêt à MATCH_DURATION_MS, quoi que fasse la stratégie (tir en
+// cours, bras, recul obstacle...). Même cœur que motion et stratégie, priorité
+// supérieure : elle les préempte sans jamais s'exécuter en parallèle, comme le
+// reste du code qui pilote FastAccelStepper depuis plusieurs tâches.
+// À 100 s : arrêt des roues, lanceur et ventilateur à 0, puis verrouillage
+// (ESC, ventilateur, activation steppers) pour qu'un appel tardif de la
+// stratégie ne relance rien. Le verrou est levé par resetMatchState().
+
+static volatile bool sMatchKilled = false;
+
+static void stopAllActuators() {
+    stopFlywheels();
+    feeder.stop();
+}
+
+static void taskMatchGuard(void *) {
+    uint32_t killedAt = 0;
+    bool     disabled = false;
+    for (;;) {
+        uint32_t now   = millis();
+        uint32_t start = gDisplay.match_start_ms;
+
+        if (sStopMotorsReq) {
+            sStopMotorsReq = false;
+            gMotionCtrl.release();
+            motion.stop();
+            motion.disableMotors();
+            LOG_W("GUARD", "Moteurs coupes (UI)");
+        }
+        if (sEnableMotorsReq) {
+            sEnableMotorsReq = false;
+            motion.enableMotors();      // sans effet si verrou de fin de match
+            LOG_I("GUARD", "Moteurs actives (UI)");
+        }
+
+        if (!sMatchKilled && start > 0 && now - start >= MATCH_DURATION_MS) {
+            sMatchKilled = true;
+            killedAt     = now;
+            disabled     = false;
+            Esc::setLocked(true);
+            PwmFan::setLocked(true);
+            motion.setLocked(true);
+            gMotionCtrl.release();
+            motion.stop();              // arrêt net, moteurs encore alimentés
+            stopAllActuators();
+            gDisplay.robot_state = RobotState::DONE;
+            gDisplay.match_phase = MatchPhase::DONE;
+            LOG_W("GUARD", "Fin de match : tout est coupe");
+        }
+
+        if (sMatchKilled && Esc::isLocked()) {
+            // Coupure des steppers après l'arrêt net (sinon roue libre lancée)
+            if (!disabled && now - killedAt >= 300) {
+                motion.disableMotors();
+                disabled = true;
+            }
+            // Une consigne écrite juste avant le verrou peut avoir survécu
+            if (flywheelLeft.getSpeed() > 0 || flywheelRight.getSpeed() > 0 ||
+                feeder.getSpeed() > 0)
+                stopAllActuators();
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+}
+
+// Remise à zéro avant une relance sans redémarrage (retour WAIT_INIT ou
+// RESTART_MATCH) : chrono, mode endgame et verrous de fin de match.
+// Stratégie terminée (état DONE) : plus aucun appel tardif possible, les
+// verrous sont levés pour permettre les essais depuis l'UI (goto, moteurs).
+// sMatchKilled reste vrai : le chrono ne recoupe pas.
+static void unlockAfterMatch() {
+    Esc::setLocked(false);
+    PwmFan::setLocked(false);
+    motion.setLocked(false);
+}
+
+static void resetMatchState() {
+    robot.resetMatch();         // match_start_ms = 0 d'abord : le chrono ne recoupe pas
+    sMatchKilled = false;
+    Esc::setLocked(false);
+    PwmFan::setLocked(false);
+    motion.setLocked(false);
 }
 
 // ─── Tâche Strategy (Core 1, prio 2) ─────────────────────────────────────────
@@ -125,6 +224,7 @@ static void taskStrategy(void *) {
 
 restart:   // point de retour pour GOTO_WAIT_INIT / RESTART_MATCH
     robot.disableMotors();
+    resetMatchState();
     gDisplay.team = teamSwitch();
     ledsSetTeam(gDisplay.team);
     gDisplay.robot_state = RobotState::WAIT_INIT;
@@ -201,7 +301,7 @@ match_start:
         if (xQueueReceive(gStateCmd, &cmd, 0) == pdTRUE) {
             if (cmd == StateCmd::STOP_MOTORS)    { robot.disableMotors(); }
             if (cmd == StateCmd::ENABLE_MOTORS)  { robot.enableMotors(); }
-            if (cmd == StateCmd::STOP_MATCH)     { gDisplay.match_start_ms = millis() - MATCH_DURATION_MS; }
+            // STOP_MATCH : traité dans sendStateCmd (chrono avancé → taskMatchGuard)
             if (cmd == StateCmd::RESTART_MATCH)  { robot.disableMotors(); goto restart; }
             if (cmd == StateCmd::GOTO_WAIT_INIT) { robot.disableMotors(); goto restart; }
         }
@@ -220,6 +320,7 @@ match_start:
     robot.disableMotors();
     actuatorsDisable();
     gDisplay.robot_state = RobotState::DONE;
+    unlockAfterMatch();
     LOG_I("MAIN", "Match termine");
 
     // ── Après match : attente commande UI pour relancer ───────────────────────
@@ -230,7 +331,7 @@ match_start:
             if (cmd == StateCmd::ENABLE_MOTORS)  { robot.enableMotors(); }
             if (cmd == StateCmd::GOTO_WAIT_INIT) { goto restart; }
             if (cmd == StateCmd::RESTART_MATCH ||
-                cmd == StateCmd::START_MATCH)    { robot.enableMotors(); goto match_start; }
+                cmd == StateCmd::START_MATCH)    { resetMatchState(); robot.enableMotors(); goto match_start; }
         }
         vTaskDelay(pdMS_TO_TICKS(100));
     }
@@ -265,6 +366,9 @@ void setup() {
 
     xTaskCreatePinnedToCore(taskEncoders, "encoders", 2048,
                             nullptr, 3,                  nullptr, 0);   // Core 0, prio 3
+
+    xTaskCreatePinnedToCore(taskMatchGuard, "guard", 3072,
+                            nullptr, 5,                  nullptr, 1);   // Core 1, prio 5
 
     xTaskCreatePinnedToCore(taskStrategy, "strategy", TASK_STRATEGY_STACK,
                             nullptr, TASK_STRATEGY_PRIO, nullptr, TASK_STRATEGY_CORE);

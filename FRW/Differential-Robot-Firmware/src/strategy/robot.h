@@ -87,6 +87,9 @@ public:
 
     // ── Chrono de match ──────────────────────────────────────────────────────
     void     startMatch();
+    // Remet le chrono à zéro (pas de match en cours) et réarme les interruptions
+    // endgame : à appeler avant toute relance sans redémarrage de la carte.
+    void     resetMatch();
     void     startNearEnd() { _nearEndMode = true; }  // désactive les interruptions isEndgame()
     uint32_t matchElapsed() const;
     bool     isEndgame()    const;

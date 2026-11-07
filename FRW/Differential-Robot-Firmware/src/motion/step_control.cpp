@@ -19,6 +19,7 @@ bool StepControl::begin() {
     _stepR->setEnablePin(STEPPER_EN_PIN, true);
     _stepL->enableOutputs();
     _stepR->enableOutputs();
+    _enabled = true;
 
     // Drive strength maximale (40 mA) sur tous les pins de commande moteur
     gpio_set_drive_capability((gpio_num_t)STEPPER_L_STEP_PIN, GPIO_DRIVE_CAP_3);
@@ -126,11 +127,14 @@ void StepControl::stop() {
 void StepControl::disableMotors() {
     _stepL->disableOutputs();
     _stepR->disableOutputs();
+    _enabled = false;
 }
 
 void StepControl::enableMotors() {
+    if (_locked) return;
     _stepL->enableOutputs();
     _stepR->enableOutputs();
+    _enabled = true;
 }
 
 void StepControl::softStop(float accelOverride) {

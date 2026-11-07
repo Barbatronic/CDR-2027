@@ -14,7 +14,13 @@ Robot::Robot(StepControl &motion, LD06 &lidar, MotionController &motionCtrl)
 // ─── Chrono de match ──────────────────────────────────────────────────────────
 
 void Robot::startMatch() {
+    _nearEndMode = false;
     gDisplay.match_start_ms = millis();
+}
+
+void Robot::resetMatch() {
+    gDisplay.match_start_ms = 0;
+    _nearEndMode = false;
 }
 
 uint32_t Robot::matchElapsed() const {

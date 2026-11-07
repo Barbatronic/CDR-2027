@@ -1,11 +1,14 @@
 #include "esc.h"
 #include <Arduino.h>
 
+volatile bool Esc::_locked = false;
+
 Esc::Esc(PCA9685 &pca, EscConfig cfg) : _pca(pca), _cfg(cfg) {}
 
 void Esc::setSpeed(float pct) {
     if (pct > 100.0f) pct = 100.0f;
     if (pct <   0.0f) pct =   0.0f;
+    if (_locked)      pct =   0.0f;
     _speedPct = pct;
 
     float us = (float)_cfg.minUs + pct * (float)(_cfg.maxUs - _cfg.minUs) / 100.0f;

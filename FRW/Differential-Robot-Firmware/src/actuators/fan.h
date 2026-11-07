@@ -14,11 +14,16 @@ public:
     void  stop()                  { setSpeed(0.0f); }
     float getSpeed() const        { return _speedPct; }
 
+    // Verrou commun : verrouillé, toute consigne devient 0 %.
+    // Posé par le chrono de match à 100 s, levé à la relance d'un match.
+    static void setLocked(bool locked) { _locked = locked; }
+
 private:
     uint8_t  _pin;
     uint8_t  _ch;
     uint32_t _freqHz;
     float    _speedPct = 0.0f;
+    static volatile bool _locked;
 
     static constexpr uint8_t RES_BITS = 8;
 };
