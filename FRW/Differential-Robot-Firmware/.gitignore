@@ -7,3 +7,7 @@ src/credentials.h
 .claude/settings.local.json
 # Règlements (PDF volumineux, lien dans le README)
 doc/Eurobot*_Rules*.pdf
+
+# Mouvements enregistrés depuis l'interface (export CSV de l'onglet MOTION) :
+# suivis malgré la règle *.csv de la racine (nomenclatures KiCad)
+!logs/*.csv
