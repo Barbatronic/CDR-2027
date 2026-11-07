@@ -10,6 +10,7 @@
 #include "../live_config.h"
 #include "../display/oled.h"
 #include "../log.h"
+#include "../motion/recorder.h"
 
 LogServer logServer;
 
@@ -165,6 +166,9 @@ void LogServer::_handleWsMsg(uint8_t* payload, size_t len) {
 
     // ── Calibration live ─────────────────────────────────────────────────────
     if (strstr(p, "\"calib\"")) { _handleCalibMsg(p); return; }
+
+    // ── Renvoi du dernier mouvement enregistré : {"type":"rec_req"} ─────────
+    if (strstr(p, "\"rec_req\"")) { gRecorder.resend(); _recGen = 0; return; }
 
     // ── Choix de la table : {"type":"table","essai":1} ───────────────────────
     // Refusé pendant calage et match : les filtres LIDAR et le calage en
@@ -449,8 +453,51 @@ void LogServer::_loop() {
             _ws.broadcastTXT(buf);
         }
 
+        // Dernier mouvement enregistré : un bloc par tour, seulement si une
+        // page est connectée (sinon il attend la prochaine connexion)
+        if (gRecorder.ready() && _ws.connectedClients() > 0) _sendRecChunk();
+
         vTaskDelay(pdMS_TO_TICKS(10));
     }
+}
+
+// ─── Envoi de l'enregistrement de mouvement ──────────────────────────────────
+// {"type":"rec","g":gen,"i":premier,"n":total,"tr":tronqué,"d":[[t,st,ph,x,y,
+//  th,cmdL,cmdR,vL,vR,errD,errA,cap],...]} — unités de RecSample (recorder.h).
+// L'interface assemble les blocs d'un même g et ignore un g incomplet.
+
+static constexpr uint16_t REC_CHUNK = 32;   // ~3 Ko par message
+
+void LogServer::_sendRecChunk() {
+    static char buf[REC_CHUNK * 96 + 128];  // hors pile : tâche WiFi 8 Ko
+
+    const uint32_t gen = gRecorder.gen();
+    if (gen != _recGen) { _recGen = gen; _recIdx = 0; }
+    const uint16_t n = gRecorder.count();
+    if (_recIdx >= n) { gRecorder.markSent(); return; }
+
+    int pos = snprintf(buf, sizeof(buf),
+                       "{\"type\":\"rec\",\"g\":%lu,\"i\":%u,\"n\":%u,\"tr\":%d,\"d\":[",
+                       (unsigned long)gen, (unsigned)_recIdx, (unsigned)n,
+                       gRecorder.truncated() ? 1 : 0);
+    uint16_t end = _recIdx + REC_CHUNK;
+    if (end > n) end = n;
+    for (uint16_t i = _recIdx; i < end; i++) {
+        const RecSample& s = gRecorder.at(i);
+        pos += snprintf(buf + pos, sizeof(buf) - pos,
+                        "%s[%u,%u,%u,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d]",
+                        i == _recIdx ? "" : ",",
+                        (unsigned)s.t, (unsigned)s.state, (unsigned)s.phase,
+                        s.x, s.y, s.th, s.cmdL, s.cmdR, s.vL, s.vR,
+                        s.errD, s.errA, s.cap);
+    }
+    snprintf(buf + pos, sizeof(buf) - pos, "]}");
+
+    // Écrasé par un nouveau mouvement pendant la copie : on repartira de zéro
+    if (gRecorder.gen() != gen) return;
+    _ws.broadcastTXT(buf);
+    _recIdx = end;
+    if (_recIdx >= n && gRecorder.gen() == gen) gRecorder.markSent();
 }
 
 // ─── Calibration ─────────────────────────────────────────────────────────────

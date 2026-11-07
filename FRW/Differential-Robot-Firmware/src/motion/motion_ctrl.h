@@ -107,6 +107,10 @@ private:
     // Retourne true si _initBlendPhase a été appelé.
     bool _tryBlendTransition();
 
+    // Enregistrement du mouvement (onglet MOTION) : un échantillon par cycle
+    void _recordStart();
+    void _recordSample();
+
     // PID
     bool _runPidStep();           // dispatcher selon la phase courante
     bool _runWheelPidStep();      // wheel-PID classique (ALIGN, FINAL_TURN)
@@ -163,6 +167,12 @@ private:
     volatile float _angleDeg = 0;
     volatile float _lastCmdL = 0;     // dernière commande envoyée à setMotorVelocities
     volatile float _lastCmdR = 0;
+    // Erreurs de la phase courante pour l'enregistreur : distance restante
+    // (mm) et angle restant (°, positif = tourner à gauche)
+    float _dbgErrD = 0, _dbgErrA = 0;
+    // Vitesses mesurées : comptes et instant du cycle précédent
+    int32_t  _recPrevL = 0, _recPrevR = 0;
+    uint32_t _recPrevUs = 0;
 
     // Obstacle
     LidarPoint  _scanBuf[LD06_SCAN_BUF_SIZE];

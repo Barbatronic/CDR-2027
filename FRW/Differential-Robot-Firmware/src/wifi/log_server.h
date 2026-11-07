@@ -98,6 +98,11 @@ private:
     // Calibration
     char          _calibJson[512];
     volatile bool _calibNew{false};
+
+    // Envoi du dernier mouvement enregistré (motion/recorder.h), par blocs
+    void     _sendRecChunk();
+    uint32_t _recGen{0};      // enregistrement en cours d'envoi
+    uint16_t _recIdx{0};      // prochain échantillon à envoyer
 };
 
 extern LogServer logServer;

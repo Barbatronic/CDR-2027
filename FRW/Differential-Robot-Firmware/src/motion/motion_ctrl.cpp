@@ -2,6 +2,7 @@
 #include "../live_config.h"
 #include "../display/oled.h"
 #include "../log.h"
+#include "recorder.h"
 #include <math.h>
 
 MotionController gMotionCtrl;
@@ -114,9 +115,13 @@ void MotionController::_loop() {
             }
             if (!blended) {
                 _state = State::MOVING;
+                _recordStart();          // un blend prolonge l'enregistrement en cours
                 _initAlignPhase();
             }
         }
+
+        // release() (autre tâche) a remis IDLE : fin de l'enregistrement
+        if (_state == State::IDLE && gRecorder.recording()) gRecorder.stop();
 
         switch (_state) {
             case State::IDLE:
@@ -190,8 +195,49 @@ void MotionController::_loop() {
             }
         }
 
+        if (gRecorder.recording()) _recordSample();
         vTaskDelay(pdMS_TO_TICKS(OBS_POLL_MS));
     }
+}
+
+// ─── Enregistrement ──────────────────────────────────────────────────────────
+
+void MotionController::_recordStart() {
+    gRecorder.start();
+    _recPrevUs = micros();
+    _recPrevL  = _encL->getCount();
+    _recPrevR  = _encR->getCount();
+    _dbgErrD = 0; _dbgErrA = 0;
+}
+
+void MotionController::_recordSample() {
+    const uint32_t us = micros();
+    const int32_t  cL = _encL->getCount();
+    const int32_t  cR = _encR->getCount();
+    const float    dt = (float)(us - _recPrevUs) * 1e-6f;
+    float vL = 0, vR = 0;
+    if (dt > 0.001f) {
+        vL = (float)(cL - _recPrevL) * gCalib.mmPerCount / dt;
+        vR = (float)(cR - _recPrevR) * gCalib.mmPerCount / dt;
+    }
+    _recPrevUs = us; _recPrevL = cL; _recPrevR = cR;
+
+    uint32_t t = millis() - gRecorder.startMs();
+    RecSample s;
+    s.t     = (uint16_t)(t > 65535 ? 65535 : t);
+    s.state = (uint8_t)_state;
+    s.phase = (uint8_t)_phase;
+    s.x     = recClamp16(gDisplay.enc_pose_x_mm);
+    s.y     = recClamp16(gDisplay.enc_pose_y_mm);
+    s.th    = recClamp16(gDisplay.enc_pose_theta_deg * 10.0f);
+    s.cmdL  = recClamp16(_lastCmdL);
+    s.cmdR  = recClamp16(_lastCmdR);
+    s.vL    = recClamp16(vL);
+    s.vR    = recClamp16(vR);
+    s.errD  = recClamp16(_dbgErrD * 10.0f);
+    s.errA  = recClamp16(_dbgErrA * 100.0f);
+    s.cap   = recClamp16(_phaseSpeedCap);
+    gRecorder.add(s);
 }
 
 // ─── Phases ──────────────────────────────────────────────────────────────────
@@ -321,6 +367,9 @@ void MotionController::_completeTarget() {
     gDisplay.nav_dist_mm = 0;
     gDisplay.robot_state = RobotState::IDLE;
 
+    // Dernier échantillon (arrêt effectif), puis enregistrement prêt à envoyer
+    if (gRecorder.recording()) { _recordSample(); gRecorder.stop(); }
+
     portENTER_CRITICAL(&_mux);
     _doneSeq = _handledSeq;
     portEXIT_CRITICAL(&_mux);
@@ -427,6 +476,9 @@ bool MotionController::_runWheelPidStep() {
     gDisplay.nav_dist_mm   = avg;
     gDisplay.nav_delta_deg = eL - eR;
 
+    _dbgErrD = (eL + eR) * 0.5f;
+    _dbgErrA = (eR - eL) / gCalib.encWheelbase * RAD2DEG;
+
     if (avg <= _phaseStopMm) {
         _motion->softStop();
         _lastCmdL = 0; _lastCmdR = 0;
@@ -512,6 +564,7 @@ bool MotionController::_runPoseStep() {
 
     _distMm = dist;
     gDisplay.nav_dist_mm = dist;
+    _dbgErrD = dist;
 
     // Convergence avec tolérance large (pas de précision en blend)
     if (dist <= BLEND_ARRIVAL_MM) {
@@ -530,6 +583,7 @@ bool MotionController::_runPoseStep() {
     if (_activeGoBack) thetaToTarget = _normAngle(thetaToTarget + PI_F);
     const float headingErr = _normAngle(thetaToTarget - curTheta);
     gDisplay.nav_delta_deg = headingErr * RAD2DEG;
+    _dbgErrA = headingErr * RAD2DEG;
 
     // Vitesse linéaire = v_max × cos(headingErr)
     const float align_factor = fmaxf(0.0f, cosf(headingErr));
