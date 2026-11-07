@@ -47,6 +47,12 @@ void StepControl::turn(float deg) {
     syncPose();
 }
 
+void StepControl::turnAt(float deg, float speedMmS, float accelMmS2) {
+    startTurn(deg, speedMmS, accelMmS2);
+    _waitDone();
+    syncPose();
+}
+
 // ─── Déplacements non-bloquants ───────────────────────────────────────────────
 
 void StepControl::startGo(float mm) {
@@ -98,16 +104,16 @@ void StepControl::setMotorVelocities(float leftMmS, float rightMmS) {
 }
 
 
-void StepControl::startTurn(float deg) {
+void StepControl::startTurn(float deg, float speedMmS, float accelMmS2) {
     // Arc = (wheelbase × π × |deg|) / 360 pour chaque roue
     float arc = gCalib.wheelbase * 3.14159265f * fabsf(deg) / 360.0f;
     int32_t arcSteps = _mmToSteps(arc);
     int32_t sign = (deg >= 0) ? 1 : -1;   // positif = CCW = gauche
 
-    _stepL->setSpeedInHz(_mmSToHz(TURN_SPEED_MMS));
-    _stepR->setSpeedInHz(_mmSToHz(TURN_SPEED_MMS));
-    _stepL->setAcceleration((uint32_t)(TURN_ACCEL_MMS2 * gCalib.stepsPerMm));
-    _stepR->setAcceleration((uint32_t)(TURN_ACCEL_MMS2 * gCalib.stepsPerMm));
+    _stepL->setSpeedInHz(_mmSToHz(speedMmS));
+    _stepR->setSpeedInHz(_mmSToHz(speedMmS));
+    _stepL->setAcceleration((uint32_t)(accelMmS2 * gCalib.stepsPerMm));
+    _stepR->setAcceleration((uint32_t)(accelMmS2 * gCalib.stepsPerMm));
 
     _refL = _stepL->getCurrentPosition();
     _refR = _stepR->getCurrentPosition();

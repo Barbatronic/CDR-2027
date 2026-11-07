@@ -49,7 +49,8 @@
 
 #define ENC_PPR             2048
 #define ENC_COUNTS_PER_REV  (ENC_PPR * 4)
-#define ENC_WHEEL_DIAM_MM   50.58f
+#define ENC_WHEEL_DIAM_MM   50.58f  // diamètre MOYEN des deux roues codeuses
+#define ENC_WHEEL_RATIO     1.0f    // diamètre droit / diamètre gauche (carré, lot 2)
 #define ENC_WHEELBASE_MM    189.0f  // distance entre les deux roues codeuses
 #define MM_PER_COUNT        (3.14159265f * ENC_WHEEL_DIAM_MM / ENC_COUNTS_PER_REV)
 #define ENC_LEFT_INVERT     false   // inverser sens encodeur gauche

@@ -12,6 +12,8 @@ public:
     // ── Déplacements bloquants ────────────────────────────────────────────────
     void go(float mm);              // relatif, positif = avant
     void turn(float deg);           // relatif, positif = gauche (CCW)
+    // Rotation en boucle ouverte à vitesse / accélération données (calibration)
+    void turnAt(float deg, float speedMmS, float accelMmS2);
 
     // ── Déplacements non-bloquants ────────────────────────────────────────────
     void startGo(float mm);
@@ -19,7 +21,7 @@ public:
     void startTurnOpen(float deg);          // rotation continue (roues opposées), arrêt géré par l'appelant
     void setMotorSpeeds(float leftMmS, float rightMmS);      // magnitude seule (direction inchangée)
     void setMotorVelocities(float leftMmS, float rightMmS);  // vitesse signée, gère la direction
-    void startTurn(float deg);
+    void startTurn(float deg, float speedMmS = TURN_SPEED_MMS, float accelMmS2 = TURN_ACCEL_MMS2);
     bool isMoving() const;
     void stop();                            // arrêt immédiat (force)
     void softStop(float accelOverride = 0); // arrêt avec décélération

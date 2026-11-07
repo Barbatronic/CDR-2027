@@ -39,6 +39,7 @@ public:
     // État lisible pour l'UI, envoyé avec la pose : phase (MatchPhase),
     // chrono de match, moteurs alimentés, moteurs verrouillés (fin de match).
     void updateStatus(uint8_t phase, uint32_t elapsedMs, bool motorsOn, bool motorsLocked);
+    void calibResult(const char* json);
     // Motion debug : état/phase + cible courante + vitesses commandées.
     // state/phase codés en uint8_t (cf. MotionController::State/Phase).
     void updateMotion(uint8_t state, uint8_t phase,
@@ -99,6 +100,10 @@ private:
     char          _calibJson[512];
     volatile bool _calibNew{false};
 
+    // Résultat de routine de calibration en attente d'envoi
+    char          _calresJson[320];
+    volatile bool _calresNew{false};
+
     // Envoi du dernier mouvement enregistré (motion/recorder.h), par blocs
     void     _sendRecChunk();
     uint32_t _recGen{0};      // enregistrement en cours d'envoi
@@ -117,6 +122,8 @@ void wifiLogLidarAbs(const LidarPoint* buf, uint16_t n,
                      float robot_x, float robot_y, float robot_theta_rad);
 void wifiLogUpdateActuators(float fwL, float fwR, float fd, float sbg, float sbd);
 void wifiLogUpdateStatus(uint8_t phase, uint32_t elapsedMs, bool motorsOn, bool motorsLocked);
+// Résultat d'une routine de calibration (JSON complet, type "calres")
+void wifiLogCalibResult(const char* json);
 void wifiLogUpdateMotion(uint8_t state, uint8_t phase,
                          float distMm, float speedCap,
                          float vL, float vR,
@@ -139,6 +146,7 @@ inline void wifiLogLidar(const LidarPoint*, uint16_t) {}
 inline void wifiLogLidarAbs(const LidarPoint*, uint16_t, float, float, float) {}
 inline void wifiLogUpdateActuators(float, float, float, float, float) {}
 inline void wifiLogUpdateStatus(uint8_t, uint32_t, bool, bool) {}
+inline void wifiLogCalibResult(const char*) {}
 inline void wifiLogUpdateMotion(uint8_t, uint8_t, float, float, float, float, float, float, float) {}
 struct ServoCmd { char id[24]; float val; };
 inline bool wifiPollCmd(ServoCmd&) { return false; }

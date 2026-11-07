@@ -31,33 +31,6 @@
 #include <Wire.h>
 #include <math.h>
 
-// ─── Calibration géométrique ─────────────────────────────────────────────────
-void runCalibration(Robot &robot, QuadEncoder &encL, QuadEncoder &encR) {
-    robot.enableMotors();
-    robot.disableObstacle();
-
-    Serial.println("\n=== CALIBRATION ANGLE (turn 360) ===");
-    Serial.printf("WHEELBASE_MM actuel : %.2f\n", (double)gCalib.wheelbase);
-
-    int32_t l0 = encL.getCount(), r0 = encR.getCount();
-
-    robot.turn(720);
-    wait(200);
-
-    float arcL = (float)(encL.getCount() - l0) * gCalib.mmPerCount;
-    float arcR = (float)(encR.getCount() - r0) * gCalib.mmPerCount;
-
-    float actualAngle  = (arcR - arcL) / gCalib.encWheelbase * (180.0f / 3.14159265f);
-    float newWheelbase = gCalib.wheelbase * (720.0f / actualAngle);
-
-    Serial.printf("arcG=%.1fmm  arcD=%.1fmm  angle_reel=%.1f deg\n",
-                  (double)arcL, (double)arcR, (double)actualAngle);
-
-    Serial.println("\n=== VALEUR A COPIER DANS config.h ===");
-    Serial.printf("#define WHEELBASE_MM  %.2ff\n", (double)newWheelbase);
-    Serial.println("=====================================\n");
-}
-
 // ─── Calage bordure jaune (coin du fond gauche) ─────────────────────────────
 void runInitYellow(Robot &robot) {
     robot.enableMotors();

@@ -3,11 +3,6 @@
 #include "../config.h"
 #include "../motion/encoder.h"
 
-// ─── Calibration géométrique ─────────────────────────────────────────────────
-// Effectue go(1000) + turn(360), mesure les encodeurs et affiche les nouvelles
-// valeurs DRIVE_WHEEL_DIAM_MM et WHEELBASE_MM sur le moniteur série.
-void runCalibration(Robot &robot, QuadEncoder &encL, QuadEncoder &encR);
-
 // ─── Calage bordure (à appeler avant la mise en place sur table) ─────────────
 void runInitYellow(Robot &robot);
 void runInitBlue(Robot &robot);

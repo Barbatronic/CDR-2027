@@ -217,8 +217,8 @@ void MotionController::_recordSample() {
     const float    dt = (float)(us - _recPrevUs) * 1e-6f;
     float vL = 0, vR = 0;
     if (dt > 0.001f) {
-        vL = (float)(cL - _recPrevL) * gCalib.mmPerCount / dt;
-        vR = (float)(cR - _recPrevR) * gCalib.mmPerCount / dt;
+        vL = (float)(cL - _recPrevL) * gCalib.mmPerCountL / dt;
+        vR = (float)(cR - _recPrevR) * gCalib.mmPerCountR / dt;
     }
     _recPrevUs = us; _recPrevL = cL; _recPrevR = cR;
 
@@ -273,8 +273,8 @@ void MotionController::_initAlignPhase() {
     // Setup PID rotation sur place
     float arc  = gCalib.encWheelbase * fabsf(turnErr) * 0.5f;
     float sign = turnErr > 0 ? 1.0f : -1.0f;
-    _phaseTL = _encL->getCount() - (int32_t)(sign * arc / gCalib.mmPerCount);
-    _phaseTR = _encR->getCount() + (int32_t)(sign * arc / gCalib.mmPerCount);
+    _phaseTL = _encL->getCount() - (int32_t)(sign * arc / gCalib.mmPerCountL);
+    _phaseTR = _encR->getCount() + (int32_t)(sign * arc / gCalib.mmPerCountR);
     _phaseSpeed   = fminf(_activeTgt.speed, TURN_SPEED_MMS);
     _phaseAccel   = fminf(_activeTgt.accel, TURN_ACCEL_MMS2);
     _phaseStopMm  = ENC_P1_STOP_DEG * gCalib.encWheelbase * PI_F / 360.0f;
@@ -304,10 +304,12 @@ void MotionController::_initTranslatePhase() {
         return;
     }
 
-    int32_t counts = (int32_t)(dist / gCalib.mmPerCount);
-    int32_t sign   = _activeGoBack ? -1 : 1;
-    _phaseTL = _encL->getCount() + sign * counts;
-    _phaseTR = _encR->getCount() + sign * counts;
+    // Même distance pour les deux roues, en comptes propres à chaque diamètre
+    int32_t countsL = (int32_t)(dist / gCalib.mmPerCountL);
+    int32_t countsR = (int32_t)(dist / gCalib.mmPerCountR);
+    int32_t sign    = _activeGoBack ? -1 : 1;
+    _phaseTL = _encL->getCount() + sign * countsL;
+    _phaseTR = _encR->getCount() + sign * countsR;
     _phaseSpeed   = _activeTgt.speed;
     _phaseAccel   = _activeTgt.accel;
     _phaseStopMm  = _activeTgt.stopMm;
@@ -339,8 +341,8 @@ void MotionController::_initFinalTurnPhase() {
     float deltaRad = deltaDeg * DEG2RAD;
     float arc  = gCalib.encWheelbase * fabsf(deltaRad) * 0.5f;
     float sign = deltaRad > 0 ? 1.0f : -1.0f;
-    _phaseTL = _encL->getCount() - (int32_t)(sign * arc / gCalib.mmPerCount);
-    _phaseTR = _encR->getCount() + (int32_t)(sign * arc / gCalib.mmPerCount);
+    _phaseTL = _encL->getCount() - (int32_t)(sign * arc / gCalib.mmPerCountL);
+    _phaseTR = _encR->getCount() + (int32_t)(sign * arc / gCalib.mmPerCountR);
     _phaseSpeed   = fminf(_activeTgt.speed, TURN_SPEED_MMS);
     _phaseAccel   = fminf(_activeTgt.accel, TURN_ACCEL_MMS2);
     _phaseStopMm  = ENC_P1_STOP_DEG * gCalib.encWheelbase * PI_F / 360.0f;
@@ -444,8 +446,8 @@ void MotionController::_initBlendPhase(float /*turnErr*/, float speedScale) {
 void MotionController::_resetPidState() {
     _phaseIL = 0;
     _phaseIR = 0;
-    _phasePrevEL = (float)(_phaseTL - _encL->getCount()) * gCalib.mmPerCount;
-    _phasePrevER = (float)(_phaseTR - _encR->getCount()) * gCalib.mmPerCount;
+    _phasePrevEL = (float)(_phaseTL - _encL->getCount()) * gCalib.mmPerCountL;
+    _phasePrevER = (float)(_phaseTR - _encR->getCount()) * gCalib.mmPerCountR;
     _phaseSpeedCap = gCalib.minSpd;
 }
 
@@ -464,8 +466,8 @@ bool MotionController::_runWheelPidStep() {
 
     _phaseSpeedCap = fminf(_phaseSpeedCap + _phaseAccel * dt, _phaseSpeed);
 
-    float eL = (float)(_phaseTL - _encL->getCount()) * gCalib.mmPerCount;
-    float eR = (float)(_phaseTR - _encR->getCount()) * gCalib.mmPerCount;
+    float eL = (float)(_phaseTL - _encL->getCount()) * gCalib.mmPerCountL;
+    float eR = (float)(_phaseTR - _encR->getCount()) * gCalib.mmPerCountR;
     float avg = (fabsf(eL) + fabsf(eR)) * 0.5f;
 
     // _distMm = distance GÉOMÉTRIQUE à la cible XY (pour waitArrived(blendMm)).

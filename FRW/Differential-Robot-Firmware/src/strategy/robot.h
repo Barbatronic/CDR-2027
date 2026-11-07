@@ -32,6 +32,8 @@ public:
 
     // Navigation odométrie encodeurs — double PID position
     void turnPID(float deg);
+    // Rotation des moteurs en boucle ouverte, vitesse imposée (calibration)
+    void turnOpen(float deg, float speedMmS, float accelMmS2) { _motion.turnAt(deg, speedMmS, accelMmS2); }
     void gotoXYenc(float x_mm, float y_mm);
     void gotoXYenc(float x_mm, float y_mm, float arrival_deg, bool backward = false);
     void gotoXYenc(Vec2 poi)                                        { gotoXYenc(poi.x, poi.y); }

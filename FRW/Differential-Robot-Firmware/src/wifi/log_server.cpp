@@ -11,6 +11,7 @@
 #include "../display/oled.h"
 #include "../log.h"
 #include "../motion/recorder.h"
+#include "../strategy/calib_routines.h"
 
 LogServer logServer;
 
@@ -24,6 +25,14 @@ void wifiLogPush(char level, const char* tag, const char* msg) {
 
 void wifiLogUpdateStatus(uint8_t phase, uint32_t elapsedMs, bool motorsOn, bool motorsLocked) {
     logServer.updateStatus(phase, elapsedMs, motorsOn, motorsLocked);
+}
+
+void wifiLogCalibResult(const char* json) { logServer.calibResult(json); }
+
+void LogServer::calibResult(const char* json) {
+    strncpy(_calresJson, json, sizeof(_calresJson) - 1);
+    _calresJson[sizeof(_calresJson) - 1] = '\0';
+    _calresNew = true;
 }
 
 void wifiLogUpdatePose(float x, float y, float theta_deg, const char* state,
@@ -166,6 +175,37 @@ void LogServer::_handleWsMsg(uint8_t* payload, size_t len) {
 
     // ── Calibration live ─────────────────────────────────────────────────────
     if (strstr(p, "\"calib\"")) { _handleCalibMsg(p); return; }
+
+    // ── Calibration : sauvegarde NVS / retour aux valeurs de config.h ────────
+    if (strstr(p, "\"calib_save\"") || strstr(p, "\"calib_reset\"")) {
+        MatchPhase ph = gDisplay.match_phase;
+        if (ph == MatchPhase::CALAGE || ph == MatchPhase::MATCH || ph == MatchPhase::ENDGAME) {
+            LOG_W("CALIB", "Refuse : calage ou match en cours");
+        } else if (strstr(p, "\"calib_save\"")) {
+            if (calibSave()) LOG_I("CALIB", "Calibration enregistree (NVS)");
+            else             LOG_E("CALIB", "Echec d'ecriture NVS");
+        } else {
+            calibRestoreDefaults();
+            LOG_I("CALIB", "Valeurs de config.h restaurees (non enregistrees)");
+        }
+        _buildCalibJson();
+        _calibNew = true;
+        return;
+    }
+
+    // ── Routine de calibration : {"type":"calrun","id":"turns","p":10} ──────
+    if (strstr(p, "\"calrun\"")) {
+        const char* pp = strstr(p, "\"p\":");
+        float param = pp ? (float)atof(pp + 4) : 0.0f;
+        bool ok = false;
+        if      (strstr(p, "\"line\"")   && param >= 100 && param <= 2500) ok = requestCalibRun(CalibRoutine::LINE, param);
+        else if (strstr(p, "\"turns\"")  && param >= 1   && param <= 20)   ok = requestCalibRun(CalibRoutine::TURNS, param);
+        else if (strstr(p, "\"sq_cw\"")  && param >= 150 && param <= 1200) ok = requestCalibRun(CalibRoutine::SQUARE_CW, param);
+        else if (strstr(p, "\"sq_ccw\"") && param >= 150 && param <= 1200) ok = requestCalibRun(CalibRoutine::SQUARE_CCW, param);
+        if (ok) LOG_I("CALRUN", "Routine demandee (param %.0f)", (double)param);
+        else    LOG_W("CALRUN", "Routine refusee (etat ou parametre)");
+        return;
+    }
 
     // ── Renvoi du dernier mouvement enregistré : {"type":"rec_req"} ─────────
     if (strstr(p, "\"rec_req\"")) { gRecorder.resend(); _recGen = 0; return; }
@@ -435,6 +475,10 @@ void LogServer::_loop() {
             _calibNew = false;
             _ws.broadcastTXT(_calibJson);
         }
+        if (_calresNew) {
+            _calresNew = false;
+            _ws.broadcastTXT(_calresJson);
+        }
 
         // Motion debug + cible
         if (_motNew) {
@@ -504,12 +548,13 @@ void LogServer::_sendRecChunk() {
 
 void LogServer::_buildCalibJson() {
     snprintf(_calibJson, sizeof(_calibJson),
-        "{\"type\":\"calib_state\","
-        "\"encWheelDiam\":%.3f,\"encWheelbase\":%.2f,\"wheelbase\":%.2f,"
+        "{\"type\":\"calib_state\",\"saved\":%d,\"encWheelRatio\":%.5f,"
+        "\"encWheelDiam\":%.4f,\"encWheelbase\":%.3f,\"wheelbase\":%.3f,"
         "\"driveWheelDiam\":%.3f,\"lidarOffset\":%.2f,"
         "\"kp\":%.4f,\"ki\":%.5f,\"kd\":%.4f,\"iMax\":%.1f,"
         "\"stopMm\":%.2f,\"minSpd\":%.2f,"
         "\"defaultSpeed\":%.0f,\"defaultAccel\":%.0f}",
+        calibIsSaved() ? 1 : 0, (double)gCalib.encWheelRatio,
         (double)gCalib.encWheelDiamMm,   (double)gCalib.encWheelbase,
         (double)gCalib.wheelbase,         (double)gCalib.driveWheelDiamMm,
         (double)gCalib.lidarOffsetDeg,
@@ -519,8 +564,6 @@ void LogServer::_buildCalibJson() {
 }
 
 void LogServer::_handleCalibMsg(const char* p) {
-    static constexpr float PI_F = 3.14159265f;
-
     char key[32] = {};
     const char* kp = strstr(p, "\"key\":\"");
     if (kp) {
@@ -537,6 +580,7 @@ void LogServer::_handleCalibMsg(const char* p) {
     struct Range { const char* key; float lo, hi; };
     static const Range ranges[] = {
         {"encWheelDiam",   45.0f,   55.0f}, {"encWheelbase", 170.0f,  210.0f},
+        {"encWheelRatio",   0.97f,   1.03f},
         {"wheelbase",     130.0f,  160.0f}, {"driveWheelDiam", 52.0f,  62.0f},
         {"lidarOffset",   -15.0f,   15.0f}, {"kp",             0.1f,   10.0f},
         {"ki",              0.0f,    0.5f}, {"kd",             0.0f,    2.0f},
@@ -562,15 +606,12 @@ void LogServer::_handleCalibMsg(const char* p) {
         return;
     }
 
-    if      (strcmp(key, "encWheelDiam")   == 0) {
-        gCalib.encWheelDiamMm = val;
-        gCalib.mmPerCount     = PI_F * val / (ENC_PPR * 4.0f);
-    } else if (strcmp(key, "encWheelbase")  == 0) { gCalib.encWheelbase     = val; }
+    if      (strcmp(key, "encWheelDiam")   == 0) { gCalib.encWheelDiamMm = val; gCalib.recompute(); }
+    else if   (strcmp(key, "encWheelRatio") == 0) { gCalib.encWheelRatio  = val; gCalib.recompute(); }
+    else if   (strcmp(key, "encWheelbase")  == 0) { gCalib.encWheelbase     = val; }
     else if   (strcmp(key, "wheelbase")     == 0) { gCalib.wheelbase        = val; }
-    else if   (strcmp(key, "driveWheelDiam") == 0) {
-        gCalib.driveWheelDiamMm = val;
-        gCalib.stepsPerMm       = (float)STEPPER_STEPS_REV / (PI_F * val);
-    } else if (strcmp(key, "lidarOffset")   == 0) { gCalib.lidarOffsetDeg   = val; }
+    else if   (strcmp(key, "driveWheelDiam") == 0) { gCalib.driveWheelDiamMm = val; gCalib.recompute(); }
+    else if   (strcmp(key, "lidarOffset")   == 0) { gCalib.lidarOffsetDeg   = val; }
     else if   (strcmp(key, "kp")            == 0) { gCalib.kp               = val; }
     else if   (strcmp(key, "ki")            == 0) { gCalib.ki               = val; }
     else if   (strcmp(key, "kd")            == 0) { gCalib.kd               = val; }

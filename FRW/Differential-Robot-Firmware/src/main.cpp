@@ -10,6 +10,7 @@
 #include "motion/motion_ctrl.h"
 #include "strategy/robot.h"
 #include "strategy/strategy.h"
+#include "strategy/calib_routines.h"
 #include "display/oled.h"
 #include "io/buttons.h"
 #include "io/leds.h"
@@ -63,8 +64,8 @@ static void taskEncoders(void *) {
         lastL = curL;
         lastR = curR;
 
-        float leftMm  = (float)dL * gCalib.mmPerCount;
-        float rightMm = (float)dR * gCalib.mmPerCount;
+        float leftMm  = (float)dL * gCalib.mmPerCountL;
+        float rightMm = (float)dR * gCalib.mmPerCountR;
         float dDist   = (leftMm + rightMm) * 0.5f;
         float dTheta  = (rightMm - leftMm) / gCalib.encWheelbase;
         float mid     = encTheta + dTheta * 0.5f;
@@ -106,7 +107,7 @@ static volatile bool sEnableMotorsReq = false;
 void sendStateCmd(StateCmd cmd) {
     // Appelé depuis la tâche WiFi : les arrêts sont délégués à taskMatchGuard
     // (Core 1), qui ne s'exécute jamais en même temps que motion / stratégie.
-    if (cmd == StateCmd::STOP_MOTORS)   { sStopMotorsReq = true; sEnableMotorsReq = false; }
+    if (cmd == StateCmd::STOP_MOTORS)   { sStopMotorsReq = true; sEnableMotorsReq = false; calibAbort(); }
     if (cmd == StateCmd::ENABLE_MOTORS) { sEnableMotorsReq = true; sStopMotorsReq = false; }
     if (cmd == StateCmd::STOP_MATCH && gDisplay.match_start_ms > 0) {
         uint32_t forced = millis() - MATCH_DURATION_MS;
@@ -259,6 +260,9 @@ restart:   // point de retour pour GOTO_WAIT_INIT / RESTART_MATCH
             }
         }
 
+        // Routine de calibration demandée depuis l'interface (attente d'init)
+        if (phase == Phase::WAIT_INIT) pollCalibRun(robot, encLeft, encRight);
+
         // Switch d'équipe lu en continu ; changement = init à refaire
         Team t = teamSwitch();
         if (t != gDisplay.team) {
@@ -355,6 +359,10 @@ void setup() {
     Serial.begin(115200);
     delay(200);
     Serial.println("=== DifferentialRobot ===");
+
+    // Calibration sauvegardée (onglet CALIBRATION → Enregistrer), sinon config.h
+    if (calibLoad()) LOG_I("CALIB", "Calibration chargee depuis la NVS");
+    else             LOG_I("CALIB", "Calibration par defaut (config.h)");
 
     Wire.begin(DISPLAY_SDA_PIN, DISPLAY_SCL_PIN);
     Wire.setClock(400000);
