@@ -33,8 +33,10 @@ bool QuadEncoder::init(int pinA, int pinB, pcnt_unit_t unit) {
     if (pcnt_unit_config(&cfgA) != ESP_OK) { LOG_E("ENC", "pcnt chan0 unit%d failed", unit); return false; }
     if (pcnt_unit_config(&cfgB) != ESP_OK) { LOG_E("ENC", "pcnt chan1 unit%d failed", unit); return false; }
 
-    // Filtre anti-rebond : rejette impulsions < 1000 cycles APB (~12.5 ns × 1000 = 12.5 µs)
-    pcnt_set_filter_value(unit, 1000);
+    // Filtre anti-rebond : rejette impulsions < 400 cycles APB (12.5 ns × 400 = 5 µs).
+    // 12.5 µs auparavant : trop proche du demi-cycle du signal A (~15 µs) d'une
+    // roue codeuse à 2600 mm/s (rotation rapide) → risque de pas perdus.
+    pcnt_set_filter_value(unit, 400);
     pcnt_filter_enable(unit);
 
     pcnt_counter_pause(unit);
