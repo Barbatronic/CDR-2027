@@ -7,19 +7,15 @@
 // Le compilateur élimine les blocs inactifs (condition constante à compile-time).
 
 // ─── Interface WiFi log (implémentée dans wifi/log_server.cpp) ───────────────
+// Seul wifiLogPush est déclaré ici (utilisé par les macros) ; le reste de
+// l'API, et ses fonctions vides quand WIFI_LOG_ENABLED = 0, est dans
+// wifi/log_server.h.
 #if WIFI_LOG_ENABLED
-void wifiLogBegin();
 void wifiLogPush(char level, const char* tag, const char* msg);
-// Déclarée ici pour les fichiers qui n'incluent pas wifi/log_server.h directement.
-// Signature complète définie dans wifi/log_server.h.
-void wifiLogUpdatePose(float x, float y, float theta_deg, const char* state,
-                       float nav_dist_mm, float nav_delta_deg, char team);
 #define _LOG_WIFI(lvl, tag, fmt, ...) \
     do { char _wlb[96]; snprintf(_wlb, sizeof(_wlb), fmt, ##__VA_ARGS__); \
          wifiLogPush(lvl, tag, _wlb); } while(0)
 #else
-inline void wifiLogBegin() {}
-inline void wifiLogUpdatePose(float, float, float, const char*, float, float, char) {}
 #define _LOG_WIFI(lvl, tag, fmt, ...)
 #endif
 

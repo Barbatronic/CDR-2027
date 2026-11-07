@@ -118,9 +118,13 @@ bool wifiPollFieldClick(float& x_mm, float& y_mm, float& theta_deg);
 
 #else
 
+#include "../lidar/ld06.h"
+
 inline void wifiLogBegin() {}
+inline void wifiLogPush(char, const char*, const char*) {}
 inline void wifiLogUpdatePose(float, float, float, const char*, float, float, char, bool) {}
-inline void wifiLogLidar(const void*, uint16_t) {}
+inline void wifiLogLidar(const LidarPoint*, uint16_t) {}
+inline void wifiLogLidarAbs(const LidarPoint*, uint16_t, float, float, float) {}
 inline void wifiLogUpdateActuators(float, float, float, float, float) {}
 inline void wifiLogUpdateMotion(uint8_t, uint8_t, float, float, float, float, float, float, float) {}
 struct ServoCmd { char id[24]; float val; };

@@ -1,16 +1,24 @@
 #pragma once
 #include <stdint.h>
 
+// Les réglages entourés de #ifndef sont surchargés par les environnements
+// PlatformIO (-D dans platformio.ini) : [env:match], [env:match_nowifi].
+// Les valeurs ci-dessous sont celles du développement.
+
 // ─── WIFI LOG ────────────────────────────────────────────────────────────────
 // 0 = désactivé (compétition — zéro overhead WiFi)
 // 1 = actif — interface web disponible
+#ifndef WIFI_LOG_ENABLED
 #define WIFI_LOG_ENABLED    1
+#endif
 
 // Mode de connexion WiFi :
 // 0 = AP (compétition) — crée le réseau "Karibous", IP fixe 192.168.4.1
 // 1 = STA (développement) — se connecte au réseau domestique, IP par DHCP
 //     → l'IP s'affiche au démarrage sur le moniteur série
+#ifndef WIFI_USE_STA
 #define WIFI_USE_STA        1
+#endif
 
 // ─── LOGS ────────────────────────────────────────────────────────────────────
 // Les macros LOG_E/W/I/D sont définies dans log.h et wrappent Serial.printf.
@@ -92,8 +100,11 @@
 #define TIR_ROUE_D_PCT           30.0f  // roue canal 1 (%)
 #define TIR_DUREE_MS             3000   // durée d'alimentation du ventilateur (ms)
 // 1 = attendre la phase d'attaque (85 s) avant de tirer — obligatoire en match
+//     (forcé à 1 par [env:match] et [env:match_nowifi])
 // 0 = tir immédiat (essais)
+#ifndef TIR_ATTENDRE_PHASE_ATTAQUE
 #define TIR_ATTENDRE_PHASE_ATTAQUE  0
+#endif
 
 // ─── CINÉMATIQUE ─────────────────────────────────────────────────────────────
 #define DEFAULT_SPEED_MMS   2000.0f    // mm/s
