@@ -69,7 +69,13 @@
           "thermal_relief_spoke_width": 0.5
         }
       },
-      "diff_pair_dimensions": [],
+      "diff_pair_dimensions": [
+        {
+          "gap": 0.0,
+          "via_gap": 0.0,
+          "width": 0.0
+        }
+      ],
       "drc_exclusions": [],
       "meta": {
         "version": 2
@@ -203,7 +209,12 @@
           "td_width_to_size_filter_ratio": 0.9
         }
       ],
-      "track_widths": [],
+      "track_widths": [
+        0.0,
+        0.3,
+        1.7,
+        2.0
+      ],
       "tuning_pattern_settings": {
         "diff_pair_defaults": {
           "corner_radius_percentage": 80,
@@ -230,7 +241,12 @@
           "spacing": 0.6
         }
       },
-      "via_dimensions": [],
+      "via_dimensions": [
+        {
+          "diameter": 0.0,
+          "drill": 0.0
+        }
+      ],
       "zones_allow_external_fillets": false
     },
     "ipc2581": {
@@ -260,7 +276,36 @@
     "equivalence_files": []
   },
   "erc": {
-    "erc_exclusions": [],
+    "erc_exclusions": [
+      [
+        "lib_symbol_issues|2032000|1346200|65453dc5-b8ac-4ad6-ac20-81f1f251b4f6|00000000-0000-0000-0000-000000000000|||",
+        ""
+      ],
+      [
+        "lib_symbol_mismatch|2019300|850900|ac2e00ce-91c8-42dd-9d39-e0b8e451fc0a|00000000-0000-0000-0000-000000000000|||",
+        ""
+      ],
+      [
+        "lib_symbol_mismatch|2578100|292100|30052989-21c2-44d4-a84d-532a6a4f18b9|00000000-0000-0000-0000-000000000000|||",
+        ""
+      ],
+      [
+        "lib_symbol_mismatch|2654300|292100|6265b38f-877e-45c2-a491-25175e268d44|00000000-0000-0000-0000-000000000000|||",
+        ""
+      ],
+      [
+        "pin_to_pin|1778000|647700|f0d50927-0f22-4a16-ae56-5c4df146e601|c2eec43a-eb86-4437-b830-191b90d20fb4|/14b9d827-5cca-4cc8-bcaa-ddaab9d56d65|/14b9d827-5cca-4cc8-bcaa-ddaab9d56d65|/14b9d827-5cca-4cc8-bcaa-ddaab9d56d65",
+        ""
+      ],
+      [
+        "pin_to_pin|2032000|1346200|954c07cf-abf5-48a9-a32e-dcba2a63a42a|faf6f333-5f4e-42d5-864a-b02cefb55cf6|/14b9d827-5cca-4cc8-bcaa-ddaab9d56d65|/14b9d827-5cca-4cc8-bcaa-ddaab9d56d65|/14b9d827-5cca-4cc8-bcaa-ddaab9d56d65",
+        ""
+      ],
+      [
+        "power_pin_not_driven|2032000|1498600|c265ad82-c9ac-4873-9585-fbc49b3ee6f6|00000000-0000-0000-0000-000000000000|/14b9d827-5cca-4cc8-bcaa-ddaab9d56d65|/14b9d827-5cca-4cc8-bcaa-ddaab9d56d65|",
+        ""
+      ]
+    ],
     "meta": {
       "version": 0
     },
@@ -661,7 +706,7 @@
         "uuid": "14b9d827-5cca-4cc8-bcaa-ddaab9d56d65"
       }
     ],
-    "used_designators": "U2,R3,C6,#PWR2,#PWR5,#PWR16",
+    "used_designators": "#PWR202,C1-2",
     "variants": []
   },
   "sheets": [

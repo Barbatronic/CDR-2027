@@ -2,4 +2,5 @@
 	(version 7)
 	(lib (name "makerspace-unilasalle") (type "KiCad") (uri "${KIPRJMOD}/lib/symbol-project/makerspace-unilasalle.kicad_sym") (options "") (descr ""))
 	(lib (name "BOB-12009") (type "KiCad") (uri "${KIPRJMOD}/lib/symbol-project/BOB-12009.kicad_sym") (options "") (descr ""))
+	(lib (name "WIZ850io") (type "KiCad") (uri "${KIPRJMOD}/lib/symbol-project/WIZ850io.kicad_sym") (options "") (descr ""))
 )
