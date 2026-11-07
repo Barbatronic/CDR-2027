@@ -649,6 +649,15 @@ body {
           <div class="res" id="cr-sq-res"></div>
         </div>
 
+        <div class="calrun-box">
+          <div class="calrun-hdr">4 · Accélération maximale
+            jusqu'à <input class="calib-inp" type="number" id="cr-accel-max" value="4000" min="1000" max="8000" step="500" style="width:64px"> mm/s²
+            <button class="act-btn calrun-btn" onclick="calRun('accel','cr-accel-max')">Lancer</button></div>
+          <div class="hint">Robot dos à une bordure, à moins de 25 cm, avec 60 cm de place devant. Allers-retours de 400 mm
+            à la vitesse par défaut, accélération 1000, 1500, 2000… jusqu'au premier glissement ou décrochage.</div>
+          <div class="res" id="cr-accel-res"></div>
+        </div>
+
       </div>
 
       <!-- ── Onglet LOGS ── -->
@@ -1871,7 +1880,7 @@ function calObsDel(i) { calObs.splice(i, 1); calObsSave(); renderCalObs(); }
 function onCalRes(d) {
   const box = d.id.startsWith('sq') ? 'cr-sq-res' : 'cr-' + d.id + '-res';
   const el = document.getElementById(box);
-  if (!d.ok) { el.innerHTML = `<span class="warn">${d.abort ? 'interrompu' : 'échec : pas de contact bordure'}</span>`; return; }
+  if (!d.ok) { el.innerHTML = `<span class="warn">${d.abort ? 'interrompu' : 'échec : pas de contact bordure ou déplacement non abouti (voir les logs)'}</span>`; return; }
 
   if (d.id === 'line') {
     el.innerHTML =
@@ -1888,6 +1897,16 @@ function onCalRes(d) {
       b.disabled = !ok;
       b.onclick = () => { sendCalib('encWheelDiam', +D.toFixed(4)); calObsClear(); };
     };
+    return;
+  }
+
+  if (d.id === 'accel') {
+    const why = ['', 'non convergé', 'écart anormal', 'glissement ou décrochage', 'interrompu'][d.why] || '?';
+    el.innerHTML = d.max > 0
+      ? `Tenu jusqu'à <b>${d.max} mm/s²</b>` + (d.fail ? ` ; échec à ${d.fail} (${why})` : ' (limite demandée atteinte)') +
+        `<br><span style="color:#777">Allers-retours de ${d.L} mm, vitesse maxi ${d.v} mm/s. ` +
+        `Garder une marge : régler « Accel def. » vers ${Math.round(d.max * 0.8 / 100) * 100}.</span>`
+      : `<span class="warn">Échec dès 1000 mm/s² (${why})</span>`;
     return;
   }
 

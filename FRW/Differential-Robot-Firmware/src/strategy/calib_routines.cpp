@@ -206,6 +206,40 @@ static void runSquare(Robot &robot, QuadEncoder &L, QuadEncoder &R, float side, 
     sendResult(buf);
 }
 
+// ─── Accélération maximale ───────────────────────────────────────────────────
+
+static void runAccel(Robot &robot, float aMax) {
+    robot.setPosition(0, gTable.h() * 0.5f, ANGLE_EAST);
+    if (!backToWall(robot, CALAGE_STALL_MM)) { sendFail("accel"); return; }
+    robot.setPosition(ROBOT_BACK_TO_CENTER_MM, gTable.h() * 0.5f, ANGLE_EAST);
+    MOVE_OR_FAIL(robot.goPID(100.0f), "accel");
+
+    // Aller-retour devant la bordure : 400 mm, moins si la table est courte
+    const float room = gTable.w() - robot.getX() - ROBOT_FRONT_TO_CENTER_MM - 50.0f;
+    const float L = fminf(400.0f, room);
+    float okA = 0, failA = 0;
+    int   why = 0;
+    for (float a = 1000.0f; a <= aMax + 1.0f; a += 500.0f) {
+        robot.setSpeed(gCalib.defaultSpeed);
+        robot.setAcceleration(a);
+        LOG_I("CALRUN", "Acceleration %.0f mm/s2 (pic %.0f mm/s)",
+              (double)a, (double)fminf(gCalib.defaultSpeed, sqrtf(a * L)));
+        const bool ok = robot.goPID(L) && robot.goPID(-L);
+        if (sAbort) { robot.setSpeedPct(CAL_MOVE_PCT); sendFail("accel"); return; }
+        if (!ok) { failA = a; why = (int)robot.lastMoveFail(); break; }
+        okA = a;
+        vTaskDelay(pdMS_TO_TICKS(300));
+    }
+    robot.setSpeedPct(CAL_MOVE_PCT);
+
+    char buf[160];
+    snprintf(buf, sizeof(buf),
+             "{\"type\":\"calres\",\"id\":\"accel\",\"ok\":1,\"max\":%.0f,\"fail\":%.0f,"
+             "\"why\":%d,\"L\":%.0f,\"v\":%.0f}",
+             (double)okA, (double)failA, why, (double)L, (double)gCalib.defaultSpeed);
+    sendResult(buf);
+}
+
 // ─── Exécution ───────────────────────────────────────────────────────────────
 
 bool pollCalibRun(Robot &robot, QuadEncoder &encL, QuadEncoder &encR) {
@@ -225,6 +259,7 @@ bool pollCalibRun(Robot &robot, QuadEncoder &encL, QuadEncoder &encR) {
         case CalibRoutine::TURNS:      runTurns(robot, encL, encR, r.param);         break;
         case CalibRoutine::SQUARE_CW:  runSquare(robot, encL, encR, r.param, true);  break;
         case CalibRoutine::SQUARE_CCW: runSquare(robot, encL, encR, r.param, false); break;
+        case CalibRoutine::ACCEL:      runAccel(robot, r.param);                     break;
     }
 
     robot.resetSpeed();

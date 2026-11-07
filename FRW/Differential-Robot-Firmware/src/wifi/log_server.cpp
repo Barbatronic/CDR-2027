@@ -238,6 +238,7 @@ void LogServer::_handleWsMsg(uint8_t* payload, size_t len) {
         else if (strstr(p, "\"turns\"")  && param >= 1   && param <= 20)   ok = requestCalibRun(CalibRoutine::TURNS, param);
         else if (strstr(p, "\"sq_cw\"")  && param >= 150 && param <= 1200) ok = requestCalibRun(CalibRoutine::SQUARE_CW, param);
         else if (strstr(p, "\"sq_ccw\"") && param >= 150 && param <= 1200) ok = requestCalibRun(CalibRoutine::SQUARE_CCW, param);
+        else if (strstr(p, "\"accel\"")  && param >= 1000 && param <= 8000) ok = requestCalibRun(CalibRoutine::ACCEL, param);
         if (ok) LOG_I("CALRUN", "Routine demandee (param %.0f)", (double)param);
         else    LOG_W("CALRUN", "Routine refusee (etat ou parametre)");
         return;

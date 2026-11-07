@@ -29,8 +29,11 @@
 //            de `param` mm, retour contre la même bordure ouest → observation
 //            pour u et v (faire les deux sens). Mesure indépendante de
 //            l'équerrage de la table.
+//  ACCEL   : allers-retours de 400 mm à accélération croissante (1000, 1500…
+//            jusqu'à `param` mm/s²), arrêt au premier mouvement non abouti
+//            (glissement, décrochage, garde-fou) → accélération maximale sûre.
 
-enum class CalibRoutine : uint8_t { LINE, TURNS, SQUARE_CW, SQUARE_CCW };
+enum class CalibRoutine : uint8_t { LINE, TURNS, SQUARE_CW, SQUARE_CCW, ACCEL };
 
 struct CalibRunReq {
     CalibRoutine id;
