@@ -6,6 +6,7 @@
 #include "log.h"
 #include "wifi/log_server.h"
 #include "lidar/ld06.h"
+#include "lidar/obstacle.h"
 #include "motion/step_control.h"
 #include "motion/motion_ctrl.h"
 #include "strategy/robot.h"
@@ -89,6 +90,7 @@ static void taskLidar(void *) {
     gDisplay.lidar_ok = true;
     for (;;) {
         lidar.update();
+        obstacleUpdate(lidar);   // surveillance demandée par le mouvement
         vTaskDelay(1);
     }
 }
