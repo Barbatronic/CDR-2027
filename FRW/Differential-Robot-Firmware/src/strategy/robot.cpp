@@ -70,16 +70,22 @@ bool Robot::goStall(float mm, uint32_t timeoutMs, uint32_t stallConfirmMs) {
     int nWin = (int)(stallConfirmMs / OBS_POLL_MS);
     if (nWin < 2) nWin = 2;
     if (nWin > WIN_MAX) nWin = WIN_MAX;
-    const float progMin = STALL_THRESH_MM * nWin;   // même vitesse seuil qu'avant (25 mm/s)
+    // Seuil : STALL_THRESH_MM par cycle (25 mm/s), ramené à la moitié de la
+    // vitesse demandée pour un recul très lent
+    const float spd   = _motion.getSpeed(), acc = _motion.getAcceleration();
+    const float winS  = nWin * OBS_POLL_MS * 1e-3f;
+    const float progMin = fminf(STALL_THRESH_MM * nWin, 0.5f * spd * winS);
     int32_t histL[WIN_MAX], histR[WIN_MAX];
     int     hIdx = 0, hFill = 0;
     float   progL = 0, progR = 0;                   // dernière progression mesurée (mm)
 
-    // Armement : pas de blocage tant que le robot accélère encore (à 10 %,
-    // il progresse moins que le seuil sur la première fenêtre) — sauf s'il a
-    // déjà parcouru 5 mm, ou s'il est resté collé jusqu'à la vitesse de croisière
-    const float    spd   = _motion.getSpeed(), acc = _motion.getAcceleration();
-    const uint32_t armMs = (acc > 1.0f ? (uint32_t)(1000.0f * spd / acc) : 0) + stallConfirmMs;
+    // Armement : pas de blocage tant que la vitesse COMMANDÉE n'a pas dépassé
+    // le double du seuil pendant toute une fenêtre. Pendant l'accélération, le
+    // robot avance moins que le seuil sans être bloqué (à 80 mm/s², il roule
+    // encore sous 30 mm/s après 5 mm). Collé dès le départ : contact détecté
+    // une fenêtre après l'armement.
+    const float    vArm  = 2.0f * progMin / winS;   // ≤ spd par construction
+    const uint32_t armMs = (uint32_t)(1000.0f * (acc > 1.0f ? vArm / acc : 0.0f)) + stallConfirmMs;
     const uint32_t t0    = millis();
 
     while (_motion.isMoving()) {
@@ -112,7 +118,7 @@ bool Robot::goStall(float mm, uint32_t timeoutMs, uint32_t stallConfirmMs) {
         }
 
         // Progression nette sur la fenêtre
-        const bool armed = traveled >= 5.0f || now - t0 >= armMs;
+        const bool armed = now - t0 >= armMs;
         if (armed && hFill >= nWin) {
             const int old = (hIdx - nWin + WIN_MAX) % WIN_MAX;
             progL = sign * (float)(curL - histL[old]) * gCalib.mmPerCountL;
