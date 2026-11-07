@@ -167,8 +167,12 @@ void MotionController::_loop() {
                     _motion->go(_activeGoBack ? OBS_BACKUP_MM : -OBS_BACKUP_MM);
                     _obstacleBackedUp = true;
                     _obstacleStartMs  = millis();
-                    // Re-init la phase TRANSLATE depuis la nouvelle position
-                    _initTranslatePhase();
+                    // Reprise depuis la nouvelle position : ALIGN d'abord (le cap
+                    // actuel ne vise pas forcément la cible, ex. pendant un blend),
+                    // puis TRANSLATE. La direction surveillée reste celle du trajet.
+                    const float moveDir = _phaseMoveDir;
+                    _initAlignPhase();
+                    _phaseMoveDir = moveDir;
                     break;
                 }
 
