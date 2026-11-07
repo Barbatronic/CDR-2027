@@ -422,20 +422,29 @@ void loop() {
                       (double)gDisplay.enc_pose_theta_deg);
     }
 
-    // LEDs + LIDAR WiFi — 100 ms (LIDAR WiFi seulement en pré-match)
+    // LEDs + LIDAR WiFi — 100 ms. Trames LIDAR construites seulement si une
+    // page est connectée : radar en pré-match uniquement, points absolus
+    // ralentis à 2 Hz pendant le match (le WiFi ne doit pas peser sur le match).
     if (now - lastLed >= 100) {
+        static uint32_t lastAbs = 0;
         lastLed = now;
         uint16_t n = lidar.getScan(scanBuf, LD06_SCAN_BUF_SIZE);
         gDisplay.lidar_pts = n;
         ledsUpdateLidar(scanBuf, n);
-        RobotState st = gDisplay.robot_state;
-        if (st == RobotState::WAIT_INIT      || st == RobotState::INIT ||
-            st == RobotState::WAIT_TIRETTE_IN || st == RobotState::WAIT_TIRETTE_OUT)
-            wifiLogLidar(scanBuf, n);
-        // LIDAR absolu toujours envoyé (coordonnées table, filtré en JS)
-        wifiLogLidarAbs(scanBuf, n,
-                        gDisplay.enc_pose_x_mm, gDisplay.enc_pose_y_mm,
-                        gDisplay.enc_pose_theta_rad);
+        if (wifiLogHasClient()) {
+            RobotState st = gDisplay.robot_state;
+            if (st == RobotState::WAIT_INIT      || st == RobotState::INIT ||
+                st == RobotState::WAIT_TIRETTE_IN || st == RobotState::WAIT_TIRETTE_OUT)
+                wifiLogLidar(scanBuf, n);
+            MatchPhase mp = gDisplay.match_phase;
+            bool inMatch = (mp == MatchPhase::MATCH || mp == MatchPhase::ENDGAME);
+            if (!inMatch || now - lastAbs >= 500) {
+                lastAbs = now;
+                wifiLogLidarAbs(scanBuf, n,
+                                gDisplay.enc_pose_x_mm, gDisplay.enc_pose_y_mm,
+                                gDisplay.enc_pose_theta_rad);
+            }
+        }
     }
 
     // Pose + actionneurs + motion debug + commandes WiFi — 200 ms

@@ -65,13 +65,19 @@ bool wifiPollFieldClick(float& x_mm, float& y_mm, float& theta_deg) {
 }
 
 bool LogServer::pollFieldClick(float& x_mm, float& y_mm, float& theta_deg) {
-    if (!_fcPending) return false;
-    x_mm = _fcX;
-    y_mm = _fcY;
-    theta_deg = _fcHasTheta ? _fcTheta : NAN;
-    _fcPending = false;
-    return true;
+    portENTER_CRITICAL(&_mux);
+    const bool pending = _fcPending;
+    if (pending) {
+        x_mm = _fcX;
+        y_mm = _fcY;
+        theta_deg = _fcHasTheta ? _fcTheta : NAN;
+        _fcPending = false;
+    }
+    portEXIT_CRITICAL(&_mux);
+    return pending;
 }
+
+bool wifiLogHasClient() { return logServer.clientCount() > 0; }
 
 bool wifiPollCmd(ServoCmd& out) {
     return logServer.pollCmd(out);
@@ -156,10 +162,40 @@ void LogServer::begin() {
     _http.onNotFound([this]() { _http.send(404, "text/plain", "Not found"); });
     _http.begin();
 
-    _ws.onEvent([this](uint8_t, WStype_t type, uint8_t* payload, size_t len) {
-        if (type == WStype_CONNECTED) { _buildCalibJson(); _calibNew = true; }
-        else if (type == WStype_TEXT && len > 4) _handleWsMsg(payload, len);
+    // Origine : une page servie par le robot uniquement (ou un outil sans
+    // en-tête Origin, comme un script de test). Bloque une page d'un autre
+    // site ouverte dans le navigateur qui tenterait de piloter le robot.
+    _ws.onValidateHttpHeader([this](String name, String value) {
+        if (!name.equalsIgnoreCase("Origin")) return true;
+        bool ok = _originOk(value);
+        if (!ok) LOG_W("WIFI", "Connexion refusee : origine %s", value.c_str());
+        return ok;
+    }, nullptr, 0);
+
+    _ws.onEvent([this](uint8_t num, WStype_t type, uint8_t* payload, size_t len) {
+        if (type == WStype_CONNECTED) {
+#ifdef WS_TOKEN
+            // Jeton simple dans l'URL : ws://robot:81/?t=JETON
+            if (!payload || !strstr((const char*)payload, "t=" WS_TOKEN)) {
+                const char* deny = "{\"type\":\"auth\",\"ok\":0}";
+                _ws.sendTXT(num, deny);
+                _ws.disconnect(num);
+                LOG_W("WIFI", "Connexion refusee : jeton absent ou faux");
+                return;
+            }
+#endif
+            _clients = _clients + 1;
+            _sendConfig(num);
+            _buildCalibJson(); _calibNew = true;
+        } else if (type == WStype_DISCONNECTED) {
+            if (_clients > 0) _clients = _clients - 1;
+        } else if (type == WStype_TEXT && len > 4) {
+            _handleWsMsg(payload, len);
+        }
     });
+    // Ping toutes les 5 s : une page disparue (téléphone en veille, WiFi
+    // perdu) est déconnectée après deux pongs manqués
+    _ws.enableHeartbeat(5000, 3000, 2);
     _ws.begin();
 
     xTaskCreatePinnedToCore(_task, "logwifi", TASK_WIFI_STACK, this,
@@ -235,15 +271,14 @@ void LogServer::_handleWsMsg(uint8_t* payload, size_t len) {
         const char* yp = strstr(p, "\"y\":");
         const char* tp = strstr(p, "\"t\":");
         if (xp && yp) {
-            _fcX = (float)atof(xp + 4);
-            _fcY = (float)atof(yp + 4);
-            if (tp) {
-                _fcTheta    = (float)atof(tp + 4);
-                _fcHasTheta = true;
-            } else {
-                _fcHasTheta = false;
-            }
-            _fcPending = true;
+            const float x = (float)atof(xp + 4), y = (float)atof(yp + 4);
+            const float t = tp ? (float)atof(tp + 4) : NAN;
+            portENTER_CRITICAL(&_mux);
+            _fcX = x; _fcY = y;
+            _fcTheta    = t;
+            _fcHasTheta = tp != nullptr;
+            _fcPending  = true;
+            portEXIT_CRITICAL(&_mux);
         }
         return;
     }
@@ -295,7 +330,15 @@ void LogServer::push(char level, const char* tag, const char* msg) {
     e.ts    = millis();
     strncpy(e.tag, tag, sizeof(e.tag) - 1);  e.tag[sizeof(e.tag) - 1] = '\0';
     strncpy(e.msg, msg, sizeof(e.msg) - 1);  e.msg[sizeof(e.msg) - 1] = '\0';
-    for (char* c = e.msg; *c; ++c) if (*c == '"') *c = '\'';
+    // Le message part tel quel dans une chaîne JSON : guillemet, antislash et
+    // caractères de contrôle la rendraient invalide
+    for (char* c = e.msg; *c; ++c) {
+        if (*c == '"') *c = '\'';
+        else if (*c == '\\') *c = '/';
+        else if ((unsigned char)*c < 0x20) *c = ' ';
+    }
+    for (char* c = e.tag; *c; ++c)
+        if (*c == '"' || *c == '\\' || (unsigned char)*c < 0x20) *c = '_';
     xQueueSend(_logQueue, &e, 0);
 }
 
@@ -303,6 +346,7 @@ void LogServer::push(char level, const char* tag, const char* msg) {
 
 void LogServer::updatePose(float x, float y, float theta_deg, const char* state,
                            float nav_dist_mm, float nav_delta_deg, char team, bool canClick) {
+    portENTER_CRITICAL(&_mux);
     _px = x; _py = y; _ptheta = theta_deg;
     _navDist = nav_dist_mm; _navDelta = nav_delta_deg;
     _team = team;
@@ -310,14 +354,17 @@ void LogServer::updatePose(float x, float y, float theta_deg, const char* state,
     strncpy(_pstate, state, sizeof(_pstate) - 1);
     _pstate[sizeof(_pstate) - 1] = '\0';
     _poseNew = true;
+    portEXIT_CRITICAL(&_mux);
 }
 
 void LogServer::updateStatus(uint8_t phase, uint32_t elapsedMs,
                              bool motorsOn, bool motorsLocked) {
+    portENTER_CRITICAL(&_mux);
     _phase        = phase;
     _elapsedMs    = elapsedMs;
     _motorsOn     = motorsOn;
     _motorsLocked = motorsLocked;
+    portEXIT_CRITICAL(&_mux);
 }
 
 // ─── updateLidar ─────────────────────────────────────────────────────────────
@@ -341,8 +388,10 @@ void LogServer::updateLidar(const LidarPoint* buf, uint16_t n) {
         first = false;
     }
     pos += snprintf(local + pos, sizeof(local) - pos, "]}");
+    portENTER_CRITICAL(&_mux);
     memcpy(_lidarJson, local, pos + 1);
     _lidarNew = true;
+    portEXIT_CRITICAL(&_mux);
 }
 
 // ─── updateLidarAbs ───────────────────────────────────────────────────────────
@@ -380,29 +429,35 @@ void LogServer::updateLidarAbs(const LidarPoint* buf, uint16_t n,
         first = false;
     }
     pos += snprintf(local + pos, sizeof(local) - pos, "]}");
+    portENTER_CRITICAL(&_mux);
     memcpy(_lidarAbsJson, local, pos + 1);
     _lidarAbsNew = true;
+    portEXIT_CRITICAL(&_mux);
 }
 
 // ─── updateActuators ──────────────────────────────────────────────────────────
 
 void LogServer::updateActuators(float fwL, float fwR, float fd, float sbg, float sbd) {
     // Servo jamais commandé → NAN : envoyé comme -1 (NAN rendrait le JSON invalide)
+    portENTER_CRITICAL(&_mux);
     _actFwL = fwL; _actFwR = fwR; _actFd = fd;
     _actSbg = isnan(sbg) ? -1.0f : sbg;
     _actSbd = isnan(sbd) ? -1.0f : sbd;
     _actNew = true;
+    portEXIT_CRITICAL(&_mux);
 }
 
 void LogServer::updateMotion(uint8_t state, uint8_t phase,
                               float distMm, float speedCap,
                               float vL, float vR,
                               float tgtX, float tgtY, float tgtTheta) {
+    portENTER_CRITICAL(&_mux);
     _motSt = state; _motPh = phase;
     _motDist = distMm; _motCap = speedCap;
     _motVL = vL; _motVR = vR;
     _motTgtX = tgtX; _motTgtY = tgtY; _motTgtTheta = tgtTheta;
     _motNew = true;
+    portEXIT_CRITICAL(&_mux);
 }
 
 // ─── pollCmd ─────────────────────────────────────────────────────────────────
@@ -423,7 +478,7 @@ void LogServer::_loop() {
         // Logs
         LogEntry e;
         while (xQueueReceive(_logQueue, &e, 0) == pdTRUE) {
-            char buf[140];
+            char buf[192];
             snprintf(buf, sizeof(buf),
                      "{\"l\":\"%c\",\"t\":\"%s\",\"m\":\"%s\",\"ts\":%lu}",
                      e.level, e.tag, e.msg, (unsigned long)e.ts);
@@ -432,8 +487,9 @@ void LogServer::_loop() {
 
         // Pose
         if (_poseNew) {
-            _poseNew = false;
             char buf[240];
+            portENTER_CRITICAL(&_mux);
+            _poseNew = false;
             snprintf(buf, sizeof(buf),
                      "{\"type\":\"pose\",\"x\":%.1f,\"y\":%.1f,\"a\":%.1f,"
                      "\"state\":\"%s\",\"nd\":%.0f,\"na\":%.1f,\"tm\":\"%c\",\"cc\":%d,"
@@ -444,29 +500,38 @@ void LogServer::_loop() {
                      (unsigned)_phase, (unsigned long)_elapsedMs,
                      _motorsOn ? 1 : 0, _motorsLocked ? 1 : 0,
                      gTable.essai ? 1 : 0);
+            portEXIT_CRITICAL(&_mux);
             _ws.broadcastTXT(buf);
         }
 
         // LIDAR radar (relatif)
         if (_lidarNew) {
+            portENTER_CRITICAL(&_mux);
             _lidarNew = false;
-            _ws.broadcastTXT(_lidarJson);
+            memcpy(_sendBuf, _lidarJson, sizeof(_sendBuf));
+            portEXIT_CRITICAL(&_mux);
+            _ws.broadcastTXT(_sendBuf);
         }
 
         // LIDAR absolu (coordonnées table)
         if (_lidarAbsNew) {
+            portENTER_CRITICAL(&_mux);
             _lidarAbsNew = false;
-            _ws.broadcastTXT(_lidarAbsJson);
+            memcpy(_sendBuf, _lidarAbsJson, sizeof(_sendBuf));
+            portEXIT_CRITICAL(&_mux);
+            _ws.broadcastTXT(_sendBuf);
         }
 
         // Actionneurs
         if (_actNew) {
-            _actNew = false;
             char buf[128];
+            portENTER_CRITICAL(&_mux);
+            _actNew = false;
             snprintf(buf, sizeof(buf),
                      "{\"type\":\"act\",\"fwL\":%.1f,\"fwR\":%.1f,\"fd\":%.1f,\"sbg\":%.1f,\"sbd\":%.1f}",
                      (double)_actFwL, (double)_actFwR, (double)_actFd,
                      (double)_actSbg, (double)_actSbd);
+            portEXIT_CRITICAL(&_mux);
             _ws.broadcastTXT(buf);
         }
 
@@ -482,8 +547,9 @@ void LogServer::_loop() {
 
         // Motion debug + cible
         if (_motNew) {
-            _motNew = false;
             char buf[256];
+            portENTER_CRITICAL(&_mux);
+            _motNew = false;
             // Note : tgtTheta peut être NaN → on envoie -9999 comme sentinelle
             float tT = isnanf((float)_motTgtTheta) ? -9999.0f : (float)_motTgtTheta;
             snprintf(buf, sizeof(buf),
@@ -494,12 +560,13 @@ void LogServer::_loop() {
                 (double)_motDist, (double)_motCap,
                 (double)_motVL, (double)_motVR,
                 (double)_motTgtX, (double)_motTgtY, (double)tT);
+            portEXIT_CRITICAL(&_mux);
             _ws.broadcastTXT(buf);
         }
 
         // Dernier mouvement enregistré : un bloc par tour, seulement si une
         // page est connectée (sinon il attend la prochaine connexion)
-        if (gRecorder.ready() && _ws.connectedClients() > 0) _sendRecChunk();
+        if (gRecorder.ready() && _clients > 0) _sendRecChunk();
 
         vTaskDelay(pdMS_TO_TICKS(10));
     }
@@ -542,6 +609,42 @@ void LogServer::_sendRecChunk() {
     _ws.broadcastTXT(buf);
     _recIdx = end;
     if (_recIdx >= n && gRecorder.gen() == gen) gRecorder.markSent();
+}
+
+// ─── Configuration envoyée à la connexion ─────────────────────────────────────
+// Source unique : l'interface prend ces valeurs dans config.h au lieu d'en
+// garder des copies (zone de détection, zones aveugles, dimensions, noms).
+
+void LogServer::_sendConfig(uint8_t num) {
+    char buf[640];
+    snprintf(buf, sizeof(buf),
+        "{\"type\":\"config\",\"obsDetect\":%.0f,\"obsWidth\":%.0f,\"obsMin\":%.0f,"
+        "\"body\":%.0f,\"blind\":[[%.0f,%.0f],[%.0f,%.0f]],"
+        "\"tw\":%.0f,\"th\":%.0f,\"ew\":%.0f,\"eh\":%.0f,"
+        "\"rf\":%.2f,\"rb\":%.2f,\"rw\":%.1f,"
+        "\"matchMs\":%lu,\"endgameMs\":%lu,"
+        "\"motState\":[\"IDLE\",\"MOVING\",\"HOLD\",\"OBSTACLE\"],"
+        "\"motPhase\":[\"NONE\",\"ALIGN\",\"TRANSLATE\",\"FINAL_TURN\"]}",
+        (double)OBS_DETECT_DIST_MM, (double)OBS_WIDTH_MM, (double)OBS_MIN_DIST_MM,
+        (double)LIDAR_BODY_DIST_MM,
+        (double)LIDAR_BLIND_L_START, (double)LIDAR_BLIND_L_END,
+        (double)LIDAR_BLIND_R_START, (double)LIDAR_BLIND_R_END,
+        (double)TABLE_WIDTH_MM, (double)TABLE_HEIGHT_MM,
+        (double)ESSAI_WIDTH_MM, (double)ESSAI_HEIGHT_MM,
+        (double)ROBOT_FRONT_TO_CENTER_MM, (double)ROBOT_BACK_TO_CENTER_MM,
+        (double)ROBOT_WIDTH_MM,
+        (unsigned long)MATCH_DURATION_MS, (unsigned long)MATCH_ENDGAME_MS);
+    _ws.sendTXT(num, buf);
+}
+
+// Origine admise : http://<adresse du robot>[:80]
+bool LogServer::_originOk(const String& origin) const {
+    String o = origin;
+    o.trim();
+    if (o.endsWith(":80")) o.remove(o.length() - 3);
+    const String sta = "http://" + WiFi.localIP().toString();
+    const String ap  = "http://" + WiFi.softAPIP().toString();
+    return o == sta || o == ap;
 }
 
 // ─── Calibration ─────────────────────────────────────────────────────────────

@@ -48,6 +48,9 @@ public:
                       float tgtX, float tgtY, float tgtTheta);
     bool pollCmd(ServoCmd& out);
     bool pollFieldClick(float& x_mm, float& y_mm, float& theta_deg);
+    // Nombre de pages connectées : sans client, inutile de construire les
+    // trames LIDAR (main.cpp)
+    uint8_t clientCount() const { return _clients; }
 
 private:
     static void _task(void* arg);
@@ -55,11 +58,21 @@ private:
     void        _handleWsMsg(uint8_t* payload, size_t len);
     void        _handleCalibMsg(const char* p);
     void        _buildCalibJson();
+    void        _sendConfig(uint8_t num);
+    bool        _originOk(const String& origin) const;
 
     WebServer        _http{80};
     WebSocketsServer _ws{81};
     QueueHandle_t    _logQueue{nullptr};
     QueueHandle_t    _cmdQueue{nullptr};
+    volatile uint8_t _clients{0};
+
+    // Les données ci-dessous sont écrites par la boucle Arduino ou la tâche
+    // stratégie (cœur 1) et envoyées par la tâche WiFi (cœur 0) : chaque
+    // écriture et chaque copie avant envoi se font sous ce verrou, pour ne
+    // jamais envoyer une trame à moitié mise à jour.
+    portMUX_TYPE     _mux = portMUX_INITIALIZER_UNLOCKED;
+    char             _sendBuf[5120];   // copie d'une trame LIDAR avant envoi (tâche WiFi)
 
     // Pose
     volatile float _px{0}, _py{0}, _ptheta{0};
@@ -129,6 +142,8 @@ void wifiLogUpdateMotion(uint8_t state, uint8_t phase,
                          float vL, float vR,
                          float tgtX, float tgtY, float tgtTheta);
 bool wifiPollCmd(ServoCmd& out);
+// true si au moins une page est connectée
+bool wifiLogHasClient();
 
 // Click utilisateur sur le terrain. Renvoie true si une commande était en
 // attente (et remet le flag à false). x/y en mm coordonnées table.
@@ -150,6 +165,7 @@ inline void wifiLogCalibResult(const char*) {}
 inline void wifiLogUpdateMotion(uint8_t, uint8_t, float, float, float, float, float, float, float) {}
 struct ServoCmd { char id[24]; float val; };
 inline bool wifiPollCmd(ServoCmd&) { return false; }
+inline bool wifiLogHasClient() { return false; }
 inline bool wifiPollFieldClick(float&, float&, float&) { return false; }
 
 #endif // WIFI_LOG_ENABLED

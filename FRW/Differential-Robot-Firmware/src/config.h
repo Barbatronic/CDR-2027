@@ -78,6 +78,7 @@
 // dépassent et butent contre les bordures → bras ouverts près des bordures.
 #define ROBOT_BACK_TO_CENTER_MM   134.82f  // arrière du robot → axe des roues
 #define ROBOT_FRONT_TO_CENTER_MM   80.9f   // avant du robot (bras ouverts) → axe des roues
+#define ROBOT_WIDTH_MM            232.0f   // largeur hors tout (cible cliquée bornée à ± la moitié)
 
 // ─── CALAGE (coin du fond, même endroit qu'en 2026) ─────────────────────────
 // Poser le robot arrière vers la bordure latérale, flanc à 7-25 cm de la
