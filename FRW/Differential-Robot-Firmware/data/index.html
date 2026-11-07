@@ -724,7 +724,6 @@ let pose         = {x:0, y:0, a:0, state:'—', tm:'?', cc:0};
 let motion       = {st:0, ph:0, dist:0, cap:0, vL:0, vR:0, tx:0, ty:0, tt:-9999};
 let MOT_STATE = ['IDLE', 'MOVING', 'HOLD', 'OBSTACLE'];
 let MOT_PHASE = ['NONE', 'ALIGN', 'TRANSLATE', 'FINAL_TURN'];
-let needRender   = false;   // dirty flag pour renderLogs() (incrémental)
 
 // ── Filtres ────────────────────────────────────────────────────────────────
 function toggleLevel(l) {
@@ -1093,6 +1092,7 @@ document.getElementById('field-canvas').addEventListener('mouseleave', () => {
 // mousedown → capture point cible. drag → preview rouge avec angle.
 // mouseup → envoie ; si drag < 8 px on envoie sans theta (clic simple).
 let clickFlash = null;        // {x, y, t0} pour anim courte du marqueur
+let flashRaf   = false;       // une seule boucle d'animation à la fois
 let dragState  = null;        // {sx, sy, mx, my, sxClient, syClient} pendant le drag
 const DRAG_THRESHOLD_PX = 8;
 
@@ -1328,9 +1328,15 @@ function drawPose() {
       ctx.strokeStyle = `rgba(255,255,255,${alpha * 0.9})`;
       ctx.lineWidth = 2;
       ctx.stroke();
-      requestAnimationFrame(drawPose);
+      // drawPose est aussi appelé à chaque message reçu : sans ce drapeau,
+      // chaque appel relançait sa propre boucle d'animation
+      if (!flashRaf) {
+        flashRaf = true;
+        requestAnimationFrame(() => { flashRaf = false; drawPose(); });
+      }
     } else {
       clickFlash = null;
+      requestAnimationFrame(drawPose);   // efface le dernier cercle
     }
   }
 

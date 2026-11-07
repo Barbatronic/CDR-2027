@@ -167,6 +167,8 @@ void LogServer::begin() {
     _http.on("/field.jpg", [this]() {
         File f = LittleFS.open("/field.jpg", "r");
         if (!f) { _http.send(404, "text/plain", "Not found"); return; }
+        // Image fixe d'environ 200 Ko : gardée un jour par le navigateur
+        _http.sendHeader("Cache-Control", "max-age=86400");
         _http.streamFile(f, "image/jpeg");
         f.close();
     });
