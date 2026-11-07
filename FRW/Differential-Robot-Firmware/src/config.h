@@ -177,7 +177,7 @@
 #define ENC_P1_KD         0.2f   // dérivé        : amortissement en fin de course
 #define ENC_P1_I_MAX     100.0f    // anti-windup   : saturation intégrale (mm/s)
 #define ENC_P1_STOP_MM    5.0f    // seuil d'arrêt translation : erreur avg < valeur → stop (mm)
-#define ENC_P1_STOP_DEG   2.0f    // seuil d'arrêt rotation    : erreur avg < valeur → stop (°)
+#define ENC_P1_STOP_DEG   0.5f    // seuil d'arrêt rotation    : erreur avg < valeur → stop (°)
 #define ENC_P1_MIN_SPD    8.0f    // vitesse min   : en dessous → stopMove() (mm/s)
 
 // ─── DÉTECTION STALL ─────────────────────────────────────────────────────────
